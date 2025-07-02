@@ -140,13 +140,18 @@
 
             // lblDashboard
             this.lblDashboard.AutoSize = true;
+            this.lblDashboard.Cursor = System.Windows.Forms.Cursors.Hand;
             this.lblDashboard.Font = new System.Drawing.Font("Arial", 12F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
             this.lblDashboard.ForeColor = System.Drawing.Color.White;
+            this.lblDashboard.BackColor = System.Drawing.Color.MidnightBlue;
             this.lblDashboard.Location = new System.Drawing.Point(12, 140);
             this.lblDashboard.Name = "lblDashboard";
             this.lblDashboard.Size = new System.Drawing.Size(110, 19);
             this.lblDashboard.TabIndex = 1;
             this.lblDashboard.Text = "DASHBOARD";
+            this.lblDashboard.Click += new System.EventHandler(this.lblDashboard_Click);
+            this.lblDashboard.MouseEnter += new System.EventHandler(this.lblDashboard_MouseEnter);
+            this.lblDashboard.MouseLeave += new System.EventHandler(this.lblDashboard_MouseLeave);
 
             // btnPediaMedRecords
             this.btnPediaMedRecords.BackColor = System.Drawing.Color.RoyalBlue;

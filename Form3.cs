@@ -88,8 +88,9 @@ namespace roman_medical_clinic_mis
 
         private void btnAboutLicense_Click(object sender, EventArgs e)
         {
-            MessageBox.Show("About & License feature is not implemented in this example.",
-                "Feature Not Available", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            // Create and show the About & License form
+            Form8 aboutForm = new Form8();
+            aboutForm.ShowDialog(); // Use ShowDialog to make it modal
         }
 
         private void btnClose_Click(object sender, EventArgs e)
@@ -348,21 +349,91 @@ namespace roman_medical_clinic_mis
         {
             if (selectedPatientId > 0)
             {
-                // In a real application, this would open a prescription form
-                // For now, show a placeholder message
-                string patientName = $"{txtGivenName.Text} {txtSurname.Text}";
-                MessageBox.Show($"Prescription module for {patientName} would be displayed here.\n\nThis feature will be implemented in a future update.",
-                    "Prescriptions", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                try
+                {
+                    // Retrieve patient information needed for prescription
+                    using (MySqlConnection connection = new MySqlConnection(connectionString))
+                    {
+                        connection.Open();
 
-                // Future implementation might look like:
-                // PrescriptionForm prescriptionForm = new PrescriptionForm(selectedPatientId, patientName);
-                // prescriptionForm.ShowDialog();
+                        string query = @"
+                    SELECT 
+                        surname,
+                        given_name,
+                        middle_name,
+                        address,
+                        sex,
+                        TIMESTAMPDIFF(YEAR, birthdate, CURDATE()) as age,
+                        birthdate
+                    FROM adult_patients
+                    WHERE patient_id = @PatientId";
+
+                        using (MySqlCommand command = new MySqlCommand(query, connection))
+                        {
+                            command.Parameters.AddWithValue("@PatientId", selectedPatientId);
+
+                            using (MySqlDataReader reader = command.ExecuteReader())
+                            {
+                                if (reader.Read())
+                                {
+                                    string fullName = $"{reader["given_name"]} {reader["middle_name"]} {reader["surname"]}";
+                                    string address = reader["address"].ToString();
+                                    string sexAge = $"{reader["sex"]}/{reader["age"]}";
+
+                                    // Navigate to Form7 with patient details
+                                    Form7 prescriptionForm = new Form7(
+                                        selectedPatientId,
+                                        fullName,
+                                        address,
+                                        sexAge,
+                                        DateTime.Today
+                                    );
+
+                                    prescriptionForm.Show();
+                                    this.Hide();
+                                }
+                                else
+                                {
+                                    MessageBox.Show("Could not retrieve patient information.",
+                                        "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                                }
+                            }
+                        }
+                    }
+                }
+                catch (Exception ex)
+                {
+                    MessageBox.Show($"Error preparing prescription: {ex.Message}",
+                        "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                }
             }
             else
             {
                 MessageBox.Show("Please select a patient record first.",
                     "No Patient Selected", MessageBoxButtons.OK, MessageBoxIcon.Warning);
             }
+        }
+
+        private void lblDashboard_Click(object sender, EventArgs e)
+        {
+            // Navigate to dashboard
+            Form5 dashboardForm = new Form5();
+            dashboardForm.Show();
+            this.Hide();
+        }
+
+        private void lblDashboard_MouseEnter(object sender, EventArgs e)
+        {
+            // Change appearance when mouse hovers over the dashboard text
+            lblDashboard.ForeColor = System.Drawing.Color.Yellow; // Highlight color
+            lblDashboard.Font = new Font(lblDashboard.Font, FontStyle.Bold | FontStyle.Underline);
+        }
+
+        private void lblDashboard_MouseLeave(object sender, EventArgs e)
+        {
+            // Restore original appearance when mouse leaves
+            lblDashboard.ForeColor = System.Drawing.Color.White;
+            lblDashboard.Font = new Font(lblDashboard.Font.FontFamily, lblDashboard.Font.Size, FontStyle.Bold);
         }
         #endregion
 
@@ -660,16 +731,19 @@ namespace roman_medical_clinic_mis
                 return false;
             }
 
-            // Adult-specific validation: Check if patient is at least 18 years old
+            // Adult-specific validation: Check if patient is at least 19 years old
             DateTime birthdate = dtpBirthdate.Value;
             DateTime today = DateTime.Today;
             int age = today.Year - birthdate.Year;
             if (birthdate.Date > today.AddYears(-age)) age--;
 
-            if (age < 18)
+            if (age < 19)
             {
-                MessageBox.Show("Patient must be at least 18 years old for adult records.",
-                    "Validation Error", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                MessageBox.Show(
+                    "This patient cannot be registered in Adult Records.\n\n" +
+                    "Pediatrics is for patients up to 18 years and 364 days old.\n" +
+                    "Adult Records are for patients 19 years old and above.",
+                    "Age Restriction", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                 dtpBirthdate.Focus();
                 return false;
             }

@@ -1,7 +1,3 @@
-D:\Programming\Systems\Desktop-Systems\CSharp-DotNet\roman-medical-clinic_mis\obj\Debug\roman-medical-clinic_mis.csproj.AssemblyReference.cache
-D:\Programming\Systems\Desktop-Systems\CSharp-DotNet\roman-medical-clinic_mis\obj\Debug\roman_medical_clinic_mis.Properties.Resources.resources
-D:\Programming\Systems\Desktop-Systems\CSharp-DotNet\roman-medical-clinic_mis\obj\Debug\roman-medical-clinic_mis.csproj.GenerateResource.cache
-D:\Programming\Systems\Desktop-Systems\CSharp-DotNet\roman-medical-clinic_mis\obj\Debug\roman-medical-clinic_mis.csproj.CoreCompileInputs.cache
 D:\Programming\Systems\Desktop-Systems\CSharp-DotNet\roman-medical-clinic_mis\bin\Debug\roman-medical-clinic_mis.exe.config
 D:\Programming\Systems\Desktop-Systems\CSharp-DotNet\roman-medical-clinic_mis\bin\Debug\roman-medical-clinic_mis.exe
 D:\Programming\Systems\Desktop-Systems\CSharp-DotNet\roman-medical-clinic_mis\bin\Debug\roman-medical-clinic_mis.pdb
@@ -37,6 +33,12 @@ D:\Programming\Systems\Desktop-Systems\CSharp-DotNet\roman-medical-clinic_mis\bi
 D:\Programming\Systems\Desktop-Systems\CSharp-DotNet\roman-medical-clinic_mis\bin\Debug\System.Numerics.Vectors.xml
 D:\Programming\Systems\Desktop-Systems\CSharp-DotNet\roman-medical-clinic_mis\bin\Debug\System.Runtime.CompilerServices.Unsafe.xml
 D:\Programming\Systems\Desktop-Systems\CSharp-DotNet\roman-medical-clinic_mis\bin\Debug\System.Threading.Tasks.Extensions.xml
+D:\Programming\Systems\Desktop-Systems\CSharp-DotNet\roman-medical-clinic_mis\obj\Debug\roman-medical-clinic_mis.csproj.AssemblyReference.cache
+D:\Programming\Systems\Desktop-Systems\CSharp-DotNet\roman-medical-clinic_mis\obj\Debug\roman_medical_clinic_mis.Form4.resources
+D:\Programming\Systems\Desktop-Systems\CSharp-DotNet\roman-medical-clinic_mis\obj\Debug\roman_medical_clinic_mis.Form6.resources
+D:\Programming\Systems\Desktop-Systems\CSharp-DotNet\roman-medical-clinic_mis\obj\Debug\roman_medical_clinic_mis.Properties.Resources.resources
+D:\Programming\Systems\Desktop-Systems\CSharp-DotNet\roman-medical-clinic_mis\obj\Debug\roman-medical-clinic_mis.csproj.GenerateResource.cache
+D:\Programming\Systems\Desktop-Systems\CSharp-DotNet\roman-medical-clinic_mis\obj\Debug\roman-medical-clinic_mis.csproj.CoreCompileInputs.cache
 D:\Programming\Systems\Desktop-Systems\CSharp-DotNet\roman-medical-clinic_mis\obj\Debug\roman-me.F65ECAA9.Up2Date
 D:\Programming\Systems\Desktop-Systems\CSharp-DotNet\roman-medical-clinic_mis\obj\Debug\roman-medical-clinic_mis.exe
 D:\Programming\Systems\Desktop-Systems\CSharp-DotNet\roman-medical-clinic_mis\obj\Debug\roman-medical-clinic_mis.pdb
