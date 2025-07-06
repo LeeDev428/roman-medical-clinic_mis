@@ -14,16 +14,22 @@ namespace roman_medical_clinic_mis
     public partial class Form5 : Form
     {
         // Database connection string
-        private string connectionString = "server=localhost;database=roman_medical_clinic_db;uid=root;pwd=;";
+        private string connectionString = "server=localhost;database=db_roman_clinic;uid=root;pwd=;";
 
         // User information - we'll store these locally instead of using Properties.Settings
         private string currentUserType = "Admin";
         private string currentUsername = "IAN";
         private string currentFullName = "Ian Phillip C Roman";
 
+        // Timer for automatic midnight queue cleanup
+        private System.Windows.Forms.Timer midnightTimer = new System.Windows.Forms.Timer();
+
         public Form5()
         {
             InitializeComponent();
+
+            // Set up midnight timer to check and clean queue at midnight
+            SetupMidnightTimer();
         }
 
         // Constructor that accepts user information
@@ -34,6 +40,55 @@ namespace roman_medical_clinic_mis
             this.currentUserType = userType;
             this.currentUsername = username;
             this.currentFullName = fullName;
+
+            // Set up midnight timer to check and clean queue at midnight
+            SetupMidnightTimer();
+        }
+
+        private void SetupMidnightTimer()
+        {
+            // Calculate time until next midnight (Philippines time)
+            DateTime now = DateTime.Now;
+            DateTime midnight = now.Date.AddDays(1); // Next midnight
+            TimeSpan timeUntilMidnight = midnight - now;
+
+            // Set timer to trigger at midnight
+            midnightTimer.Interval = (int)timeUntilMidnight.TotalMilliseconds;
+            midnightTimer.Tick += MidnightTimer_Tick;
+            midnightTimer.Start();
+        }
+
+        private void MidnightTimer_Tick(object sender, EventArgs e)
+        {
+            // Clean the queue at midnight
+            CleanPatientQueue();
+
+            // Reset timer for next midnight
+            midnightTimer.Interval = 24 * 60 * 60 * 1000; // 24 hours in milliseconds
+        }
+
+        private void CleanPatientQueue()
+        {
+            try
+            {
+                using (MySqlConnection connection = new MySqlConnection(connectionString))
+                {
+                    connection.Open();
+                    string query = "DELETE FROM daily_patient_queue WHERE date_added < CURDATE()";
+
+                    using (MySqlCommand command = new MySqlCommand(query, connection))
+                    {
+                        command.ExecuteNonQuery();
+                    }
+
+                    // Refresh dashboard after cleaning
+                    LoadDashboardData();
+                }
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"Error cleaning queue: {ex.Message}");
+            }
         }
 
         private void Form5_Load(object sender, EventArgs e)
@@ -48,11 +103,14 @@ namespace roman_medical_clinic_mis
                 // Set welcome message
                 lblWelcome.Text = $"HI {currentUsername}";
 
-                // Setup data grid for today's patients
+                // Setup data grid for today's patients and queue
                 SetupDataGridView();
 
                 // Load dashboard data
                 LoadDashboardData();
+
+                // Make sure we clean up any outdated queue records on startup
+                CleanPatientQueue();
             }
             catch (Exception ex)
             {
@@ -67,37 +125,61 @@ namespace roman_medical_clinic_mis
             dgvTodayPatients.AutoGenerateColumns = false;
             dgvTodayPatients.Columns.Clear();
 
-            // Add columns
+            // Add columns for the queue
             dgvTodayPatients.Columns.Add(new DataGridViewTextBoxColumn
             {
-                Name = "id",
-                DataPropertyName = "id",
-                HeaderText = "ID#",
+                Name = "queue_number",
+                DataPropertyName = "queue_number",
+                HeaderText = "QUEUE#",
                 Width = 70
             });
 
             dgvTodayPatients.Columns.Add(new DataGridViewTextBoxColumn
             {
-                Name = "date",
-                DataPropertyName = "date",
-                HeaderText = "DATE",
+                Name = "patient_type",
+                DataPropertyName = "patient_type",
+                HeaderText = "TYPE",
+                Width = 70
+            });
+
+            dgvTodayPatients.Columns.Add(new DataGridViewTextBoxColumn
+            {
+                Name = "patient_name",
+                DataPropertyName = "patient_name",
+                HeaderText = "PATIENT NAME",
+                Width = 200
+            });
+
+            dgvTodayPatients.Columns.Add(new DataGridViewTextBoxColumn
+            {
+                Name = "age",
+                DataPropertyName = "age",
+                HeaderText = "AGE",
+                Width = 50
+            });
+
+            dgvTodayPatients.Columns.Add(new DataGridViewTextBoxColumn
+            {
+                Name = "sex",
+                DataPropertyName = "sex",
+                HeaderText = "SEX",
+                Width = 50
+            });
+
+            dgvTodayPatients.Columns.Add(new DataGridViewTextBoxColumn
+            {
+                Name = "time_added",
+                DataPropertyName = "time_added",
+                HeaderText = "TIME ADDED",
                 Width = 120
             });
 
             dgvTodayPatients.Columns.Add(new DataGridViewTextBoxColumn
             {
-                Name = "type",
-                DataPropertyName = "type",
-                HeaderText = "TYPE",
-                Width = 80
-            });
-
-            dgvTodayPatients.Columns.Add(new DataGridViewTextBoxColumn
-            {
-                Name = "patient",
-                DataPropertyName = "patient",
-                HeaderText = "PATIENT",
-                Width = 240
+                Name = "status",
+                DataPropertyName = "status",
+                HeaderText = "STATUS",
+                Width = 100
             });
         }
 
@@ -113,8 +195,8 @@ namespace roman_medical_clinic_mis
                 // Load user account statistics
                 LoadUserAccountStats(connection);
 
-                // Load today's patients
-                LoadTodayPatients(connection);
+                // Load today's patient queue (this replaces the old LoadTodayPatients)
+                LoadPatientQueue(connection);
             }
         }
 
@@ -161,7 +243,7 @@ namespace roman_medical_clinic_mis
                 string checkColumnQuery = @"
                     SELECT COLUMN_NAME 
                     FROM INFORMATION_SCHEMA.COLUMNS 
-                    WHERE TABLE_SCHEMA = 'roman_medical_clinic_db' 
+                    WHERE TABLE_SCHEMA = 'db_roman_clinic' 
                     AND TABLE_NAME = 'users' 
                     AND (COLUMN_NAME LIKE '%status%' OR COLUMN_NAME LIKE '%approved%')";
 
@@ -210,79 +292,49 @@ namespace roman_medical_clinic_mis
             }
         }
 
-        private void LoadTodayPatients(MySqlConnection connection)
+        private void LoadPatientQueue(MySqlConnection connection)
         {
             try
             {
-                DataTable combinedResults = new DataTable();
-                combinedResults.Columns.Add("id", typeof(int));
-                combinedResults.Columns.Add("date", typeof(DateTime));
-                combinedResults.Columns.Add("type", typeof(string));
-                combinedResults.Columns.Add("patient", typeof(string));
-
-                // Get pedia patients for today
-                string pediaQuery = @"
+                // Load patients from daily queue
+                string queueQuery = @"
                     SELECT 
-                        patient_id AS id,
-                        consultation_date AS date,
-                        'PEDIA' AS type,
-                        CONCAT(given_name, ' ', surname) AS patient
-                    FROM pedia_patients
-                    WHERE DATE(consultation_date) = CURDATE()
-                    ORDER BY consultation_date";
+                        queue_number,
+                        patient_type,
+                        CONCAT(givenname, ' ', IFNULL(middlename, ''), ' ', surname) AS patient_name,
+                        age,
+                        sex,
+                        DATE_FORMAT(added_at, '%h:%i:%s %p') AS time_added,
+                        status
+                    FROM daily_patient_queue
+                    WHERE date_added = CURDATE()
+                    ORDER BY queue_number ASC";  // First-come-first-serve order
 
-                using (MySqlCommand command = new MySqlCommand(pediaQuery, connection))
+                using (MySqlCommand command = new MySqlCommand(queueQuery, connection))
                 {
-                    using (MySqlDataReader reader = command.ExecuteReader())
+                    MySqlDataAdapter adapter = new MySqlDataAdapter(command);
+                    DataTable queueTable = new DataTable();
+                    adapter.Fill(queueTable);
+
+                    // Update the DataGridView
+                    dgvTodayPatients.DataSource = queueTable;
+
+                    // Update the title and count
+                    lblTotalToday.Text = $"PEDIA AND ADULT PATIENTS FOR TODAY: {queueTable.Rows.Count}";
+
+                    // If there are no patients in queue, display a message
+                    if (queueTable.Rows.Count == 0)
                     {
-                        while (reader.Read())
-                        {
-                            combinedResults.Rows.Add(
-                                reader["id"],
-                                reader["date"],
-                                reader["type"],
-                                reader["patient"]
-                            );
-                        }
+                        DataTable emptyTable = new DataTable();
+                        emptyTable.Columns.Add("Message");
+                        emptyTable.Rows.Add("No patients in queue today. Queue is cleared at midnight.");
+                        dgvTodayPatients.DataSource = emptyTable;
                     }
                 }
-
-                // Get adult patients for today
-                string adultQuery = @"
-                    SELECT 
-                        patient_id AS id,
-                        consultation_date AS date,
-                        'ADULT' AS type,
-                        CONCAT(given_name, ' ', surname) AS patient
-                    FROM adult_patients
-                    WHERE DATE(consultation_date) = CURDATE()
-                    ORDER BY consultation_date";
-
-                using (MySqlCommand command = new MySqlCommand(adultQuery, connection))
-                {
-                    using (MySqlDataReader reader = command.ExecuteReader())
-                    {
-                        while (reader.Read())
-                        {
-                            combinedResults.Rows.Add(
-                                reader["id"],
-                                reader["date"],
-                                reader["type"],
-                                reader["patient"]
-                            );
-                        }
-                    }
-                }
-
-                // Set the DataGridView data source
-                dgvTodayPatients.DataSource = combinedResults;
-
-                // Update total count
-                lblTotalToday.Text = $"Total No. of PATIENTS TODAY: {combinedResults.Rows.Count}";
             }
             catch (Exception ex)
             {
-                MessageBox.Show($"Error loading today's patients: {ex.Message}", "Database Error",
+                MessageBox.Show($"Error loading patient queue: {ex.Message}", "Database Error",
                     MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
         }
@@ -327,6 +379,110 @@ namespace roman_medical_clinic_mis
             // Refresh dashboard data when dashboard label is clicked
             LoadDashboardData();
         }
+
+        private void btnRefreshQueue_Click(object sender, EventArgs e)
+        {
+            // Refresh just the queue
+            using (MySqlConnection connection = new MySqlConnection(connectionString))
+            {
+                connection.Open();
+                LoadPatientQueue(connection);
+            }
+        }
+
+        private void dgvTodayPatients_CellDoubleClick(object sender, DataGridViewCellEventArgs e)
+        {
+            if (e.RowIndex >= 0)
+            {
+                try
+                {
+                    // Get queue item info
+                    string patientType = dgvTodayPatients.Rows[e.RowIndex].Cells["patient_type"].Value.ToString();
+                    string status = dgvTodayPatients.Rows[e.RowIndex].Cells["status"].Value.ToString();
+                    int queueNumber = Convert.ToInt32(dgvTodayPatients.Rows[e.RowIndex].Cells["queue_number"].Value);
+
+                    // Ask to update status
+                    if (status == "waiting")
+                    {
+                        DialogResult result = MessageBox.Show(
+                            "Update patient status to 'in_progress'?",
+                            "Update Status",
+                            MessageBoxButtons.YesNo,
+                            MessageBoxIcon.Question);
+
+                        if (result == DialogResult.Yes)
+                        {
+                            UpdateQueueItemStatus(queueNumber, "in_progress");
+                        }
+                    }
+                    else if (status == "in_progress")
+                    {
+                        DialogResult result = MessageBox.Show(
+                            "Update patient status to 'completed'?",
+                            "Update Status",
+                            MessageBoxButtons.YesNo,
+                            MessageBoxIcon.Question);
+
+                        if (result == DialogResult.Yes)
+                        {
+                            UpdateQueueItemStatus(queueNumber, "completed");
+                        }
+                    }
+                }
+                catch (Exception ex)
+                {
+                    MessageBox.Show($"Error updating queue status: {ex.Message}", "Error",
+                        MessageBoxButtons.OK, MessageBoxIcon.Error);
+                }
+            }
+        }
+
+        private void UpdateQueueItemStatus(int queueNumber, string newStatus)
+        {
+            try
+            {
+                using (MySqlConnection connection = new MySqlConnection(connectionString))
+                {
+                    connection.Open();
+
+                    string updateQuery = @"
+                        UPDATE daily_patient_queue 
+                        SET status = @Status 
+                        WHERE queue_number = @QueueNumber 
+                        AND date_added = CURDATE()";
+
+                    using (MySqlCommand command = new MySqlCommand(updateQuery, connection))
+                    {
+                        command.Parameters.AddWithValue("@Status", newStatus);
+                        command.Parameters.AddWithValue("@QueueNumber", queueNumber);
+                        command.ExecuteNonQuery();
+                    }
+
+                    // Refresh the queue display
+                    LoadPatientQueue(connection);
+                }
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Error updating queue status: {ex.Message}", "Database Error",
+                    MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+        }
         #endregion
+
+        private void pnlPendingAccounts_Paint(object sender, PaintEventArgs e)
+        {
+
+        }
+
+        private void lblPendingCount_Click(object sender, EventArgs e)
+        {
+
+        }
+
+        private void lblApprovedCount_Click(object sender, EventArgs e)
+        {
+
+        }
     }
 }

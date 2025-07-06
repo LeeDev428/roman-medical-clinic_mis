@@ -14,7 +14,7 @@ namespace roman_medical_clinic_mis
     public partial class Form2 : Form
     {
         // Database connection string
-        private string connectionString = "server=localhost;database=roman_medical_clinic_db;uid=root;pwd=;";
+        private string connectionString = "server=localhost;database=db_roman_clinic;uid=root;pwd=;";
         private int selectedPatientId = 0;
         private bool isEditMode = false;
 
@@ -27,12 +27,17 @@ namespace roman_medical_clinic_mis
             SetupDataGridView();
             ClearFields();
 
-            // Set default dates
+            // Set default dates - keep only birthdate and consultation date for new patients
             dtpBirthdate.Value = DateTime.Today;
             dtpConsultDate.Value = DateTime.Today;
-            dtpSearchConsult.Value = DateTime.Today;
-            dtpFromDate.Value = DateTime.Today.AddDays(-30);
-            dtpToDate.Value = DateTime.Today;
+
+            // Make search date pickers blank/unchecked initially
+            dtpSearchConsult.ShowCheckBox = true;
+            dtpSearchConsult.Checked = false;
+
+            // Set from/to dates to extreme ranges but don't use them in filtering
+            dtpFromDate.Value = DateTime.Today.AddYears(-50); // Very old date
+            dtpToDate.Value = DateTime.Today.AddYears(1);     // Future date
         }
 
         private void Form2_Load(object sender, EventArgs e)
@@ -40,11 +45,159 @@ namespace roman_medical_clinic_mis
             // Load patient data
             LoadPatients();
             CalculateAge();
+
+            // Clean old queue records on form load (in case app wasn't running at midnight)
+            CleanOldQueueRecords();
         }
+
+        #region Queue Management
+        private void CleanOldQueueRecords()
+        {
+            try
+            {
+                using (MySqlConnection connection = new MySqlConnection(connectionString))
+                {
+                    connection.Open();
+
+                    // Delete records that are not from today (Philippine time)
+                    string query = "DELETE FROM daily_patient_queue WHERE date_added < CURDATE()";
+
+                    using (MySqlCommand command = new MySqlCommand(query, connection))
+                    {
+                        command.ExecuteNonQuery();
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                // Log error but don't show to user on form load
+                System.Diagnostics.Debug.WriteLine($"Error cleaning old queue records: {ex.Message}");
+            }
+        }
+
+        private int GetNextQueueNumber()
+        {
+            try
+            {
+                using (MySqlConnection connection = new MySqlConnection(connectionString))
+                {
+                    connection.Open();
+
+                    string query = @"
+                        SELECT COALESCE(MAX(queue_number), 0) + 1 as next_number 
+                        FROM daily_patient_queue 
+                        WHERE date_added = CURDATE()";
+
+                    using (MySqlCommand command = new MySqlCommand(query, connection))
+                    {
+                        object result = command.ExecuteScalar();
+                        return Convert.ToInt32(result);
+                    }
+                }
+            }
+            catch (Exception)
+            {
+                return 1; // Default to 1 if error
+            }
+        }
+
+        private bool AddPatientToQueue(int patientId)
+        {
+            try
+            {
+                using (MySqlConnection connection = new MySqlConnection(connectionString))
+                {
+                    connection.Open();
+
+                    // First check if patient is already in today's queue
+                    string checkQuery = @"
+                        SELECT COUNT(*) 
+                        FROM daily_patient_queue 
+                        WHERE patient_id = @PatientId 
+                        AND patient_type = 'pedia' 
+                        AND date_added = CURDATE()
+                        AND status != 'completed'";
+
+                    using (MySqlCommand checkCommand = new MySqlCommand(checkQuery, connection))
+                    {
+                        checkCommand.Parameters.AddWithValue("@PatientId", patientId);
+                        int existingCount = Convert.ToInt32(checkCommand.ExecuteScalar());
+
+                        if (existingCount > 0)
+                        {
+                            MessageBox.Show("This patient is already in today's queue!", "Already in Queue",
+                                MessageBoxButtons.OK, MessageBoxIcon.Information);
+                            return false;
+                        }
+                    }
+
+                    // Get patient details
+                    string patientQuery = @"
+                        SELECT surname, givenname, middlename, age, sex 
+                        FROM pedia_patients 
+                        WHERE id = @PatientId";
+
+                    using (MySqlCommand patientCommand = new MySqlCommand(patientQuery, connection))
+                    {
+                        patientCommand.Parameters.AddWithValue("@PatientId", patientId);
+
+                        using (MySqlDataReader reader = patientCommand.ExecuteReader())
+                        {
+                            if (reader.Read())
+                            {
+                                string surname = reader["surname"].ToString();
+                                string givenname = reader["givenname"].ToString();
+                                string middlename = reader["middlename"].ToString();
+                                int age = Convert.ToInt32(reader["age"]);
+                                string sex = reader["sex"].ToString();
+
+                                reader.Close();
+
+                                // Add to queue
+                                int queueNumber = GetNextQueueNumber();
+
+                                string insertQuery = @"
+                                    INSERT INTO daily_patient_queue 
+                                    (patient_id, patient_type, surname, givenname, middlename, age, sex, queue_number, added_at, date_added, status) 
+                                    VALUES 
+                                    (@PatientId, 'pedia', @Surname, @GivenName, @MiddleName, @Age, @Sex, @QueueNumber, NOW(), CURDATE(), 'waiting')";
+
+                                using (MySqlCommand insertCommand = new MySqlCommand(insertQuery, connection))
+                                {
+                                    insertCommand.Parameters.AddWithValue("@PatientId", patientId);
+                                    insertCommand.Parameters.AddWithValue("@Surname", surname);
+                                    insertCommand.Parameters.AddWithValue("@GivenName", givenname);
+                                    insertCommand.Parameters.AddWithValue("@MiddleName", middlename);
+                                    insertCommand.Parameters.AddWithValue("@Age", age);
+                                    insertCommand.Parameters.AddWithValue("@Sex", sex);
+                                    insertCommand.Parameters.AddWithValue("@QueueNumber", queueNumber);
+
+                                    insertCommand.ExecuteNonQuery();
+
+                                    MessageBox.Show($"Patient {givenname} {surname} added to today's queue!\nQueue Number: {queueNumber}",
+                                        "Added to Queue", MessageBoxButtons.OK, MessageBoxIcon.Information);
+
+                                    return true;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Error adding patient to queue: {ex.Message}", "Queue Error",
+                    MessageBoxButtons.OK, MessageBoxIcon.Error);
+                return false;
+            }
+
+            return false;
+        }
+        #endregion
 
         #region Age Calculation
         private void CalculateAge()
-        {           
+        {
             DateTime birthdate = dtpBirthdate.Value;
             DateTime today = DateTime.Today;
 
@@ -158,7 +311,7 @@ namespace roman_medical_clinic_mis
         {
             if (e.RowIndex >= 0)
             {
-                selectedPatientId = Convert.ToInt32(dgvPatients.Rows[e.RowIndex].Cells["patient_id"].Value);
+                selectedPatientId = Convert.ToInt32(dgvPatients.Rows[e.RowIndex].Cells["id"].Value);
                 LoadPatientDetails(selectedPatientId);
                 // Remove the immediate navigation to Form6 to allow editing in this form first
             }
@@ -197,9 +350,9 @@ namespace roman_medical_clinic_mis
                 if (openFileDialog.ShowDialog() == DialogResult.OK)
                 {
                     // Basic implementation - this would need to be expanded based on file format
-                    MessageBox.Show($"Import functionality would be implemented for: {openFileDialog.FileName}", 
+                    MessageBox.Show($"Import functionality would be implemented for: {openFileDialog.FileName}",
                         "Import", MessageBoxButtons.OK, MessageBoxIcon.Information);
-                    
+
                     // Placeholder for actual import logic
                     // ImportPatientsFromFile(openFileDialog.FileName);
                 }
@@ -225,9 +378,9 @@ namespace roman_medical_clinic_mis
                 if (saveFileDialog.ShowDialog() == DialogResult.OK)
                 {
                     // Basic implementation - would need to be expanded based on chosen format
-                    MessageBox.Show($"Export functionality would be implemented to: {saveFileDialog.FileName}", 
+                    MessageBox.Show($"Export functionality would be implemented to: {saveFileDialog.FileName}",
                         "Export", MessageBoxButtons.OK, MessageBoxIcon.Information);
-                    
+
                     // Placeholder for actual export logic
                     // ExportPatientsToFile(saveFileDialog.FileName);
                 }
@@ -243,7 +396,7 @@ namespace roman_medical_clinic_mis
         {
             if (selectedPatientId > 0)
             {
-                DialogResult result = MessageBox.Show("Are you sure you want to delete this patient record?", 
+                DialogResult result = MessageBox.Show("Are you sure you want to delete this patient record?",
                     "Confirm Delete", MessageBoxButtons.YesNo, MessageBoxIcon.Warning);
 
                 if (result == DialogResult.Yes)
@@ -255,7 +408,7 @@ namespace roman_medical_clinic_mis
             }
             else
             {
-                MessageBox.Show("Please select a patient record to delete.", "No Selection", 
+                MessageBox.Show("Please select a patient record to delete.", "No Selection",
                     MessageBoxButtons.OK, MessageBoxIcon.Warning);
             }
         }
@@ -272,15 +425,15 @@ namespace roman_medical_clinic_mis
         {
             if (selectedPatientId > 0)
             {
-                MessageBox.Show("Print functionality would generate a printable report of the selected patient record.", 
+                MessageBox.Show("Print functionality would generate a printable report of the selected patient record.",
                     "Print", MessageBoxButtons.OK, MessageBoxIcon.Information);
-                
+
                 // Placeholder for actual print functionality
                 // PrintPatientRecord(selectedPatientId);
             }
             else
             {
-                MessageBox.Show("Please select a patient record to print.", "No Selection", 
+                MessageBox.Show("Please select a patient record to print.", "No Selection",
                     MessageBoxButtons.OK, MessageBoxIcon.Warning);
             }
         }
@@ -298,31 +451,31 @@ namespace roman_medical_clinic_mis
                         using (MySqlConnection connection = new MySqlConnection(connectionString))
                         {
                             connection.Open();
-                            
+
                             string query = @"
                                 SELECT 
                                     surname,
-                                    given_name,
-                                    middle_name,
-                                    TIMESTAMPDIFF(YEAR, birthdate, CURDATE()) as age,
-                                    consultation_date
+                                    givenname,
+                                    middlename,
+                                    age,
+                                    consultation
                                 FROM pedia_patients
-                                WHERE patient_id = @PatientId";
-                            
+                                WHERE id = @PatientId";
+
                             using (MySqlCommand command = new MySqlCommand(query, connection))
                             {
                                 command.Parameters.AddWithValue("@PatientId", selectedPatientId);
-                                
+
                                 using (MySqlDataReader reader = command.ExecuteReader())
                                 {
                                     if (reader.Read())
                                     {
                                         string surname = reader["surname"].ToString();
-                                        string givenName = reader["given_name"].ToString();
-                                        string middleName = reader["middle_name"].ToString();
+                                        string givenName = reader["givenname"].ToString();
+                                        string middleName = reader["middlename"].ToString();
                                         int age = Convert.ToInt32(reader["age"]);
-                                        DateTime consultDate = Convert.ToDateTime(reader["consultation_date"]);
-                                        
+                                        DateTime consultDate = Convert.ToDateTime(reader["consultation"]);
+
                                         // Navigate to Form6 with the selected patient information
                                         Form6 consultationForm = new Form6(
                                             selectedPatientId,
@@ -331,7 +484,7 @@ namespace roman_medical_clinic_mis
                                             middleName,
                                             age,
                                             consultDate);
-                                        
+
                                         consultationForm.Show();
                                         this.Hide();
                                     }
@@ -347,7 +500,7 @@ namespace roman_medical_clinic_mis
             }
             else
             {
-                MessageBox.Show("Please select a patient record to update first.", 
+                MessageBox.Show("Please select a patient record to update first.",
                     "No Patient Selected", MessageBoxButtons.OK, MessageBoxIcon.Warning);
             }
         }
@@ -356,22 +509,18 @@ namespace roman_medical_clinic_mis
         {
             if (selectedPatientId > 0)
             {
-                // Keep patient information but set a new consultation date
-                dtpConsultDate.Value = DateTime.Today;
-                
-                // Clear the ID to make it save as a new record
-                int tempId = selectedPatientId;
-                selectedPatientId = 0;
-                
-                MessageBox.Show("Please update any necessary information and click Save to create a new consultation record.", 
-                    "Reconsultation", MessageBoxButtons.OK, MessageBoxIcon.Information);
-                
-                // If they cancel, we need the ID to restore the original record
-                btnCancel.Tag = tempId;
+                // Add patient to today's queue
+                if (AddPatientToQueue(selectedPatientId))
+                {
+                    // Navigate to dashboard to show the queue
+                    Form5 dashboardForm = new Form5();
+                    dashboardForm.Show();
+                    this.Hide();
+                }
             }
             else
             {
-                MessageBox.Show("Please select a patient record first.", 
+                MessageBox.Show("Please select a patient record first.",
                     "No Patient Selected", MessageBoxButtons.OK, MessageBoxIcon.Warning);
             }
         }
@@ -390,14 +539,14 @@ namespace roman_medical_clinic_mis
                         string query = @"
                     SELECT 
                         surname,
-                        given_name,
-                        middle_name,
+                        givenname,
+                        middlename,
                         address,
                         sex,
-                        TIMESTAMPDIFF(YEAR, birthdate, CURDATE()) as age,
+                        age,
                         birthdate
                     FROM pedia_patients
-                    WHERE patient_id = @PatientId";
+                    WHERE id = @PatientId";
 
                         using (MySqlCommand command = new MySqlCommand(query, connection))
                         {
@@ -407,7 +556,7 @@ namespace roman_medical_clinic_mis
                             {
                                 if (reader.Read())
                                 {
-                                    string fullName = $"{reader["given_name"]} {reader["middle_name"]} {reader["surname"]}";
+                                    string fullName = $"{reader["givenname"]} {reader["middlename"]} {reader["surname"]}";
                                     string address = reader["address"].ToString();
                                     string sexAge = $"{reader["sex"]}/{reader["age"]}";
 
@@ -478,8 +627,8 @@ namespace roman_medical_clinic_mis
             // Add columns
             dgvPatients.Columns.Add(new DataGridViewTextBoxColumn
             {
-                Name = "patient_id",
-                DataPropertyName = "patient_id",
+                Name = "id",
+                DataPropertyName = "id",
                 HeaderText = "ID",
                 Visible = false
             });
@@ -494,16 +643,16 @@ namespace roman_medical_clinic_mis
 
             dgvPatients.Columns.Add(new DataGridViewTextBoxColumn
             {
-                Name = "given_name",
-                DataPropertyName = "given_name",
+                Name = "givenname",
+                DataPropertyName = "givenname",
                 HeaderText = "Given Name",
                 Width = 120
             });
 
             dgvPatients.Columns.Add(new DataGridViewTextBoxColumn
             {
-                Name = "middle_name",
-                DataPropertyName = "middle_name",
+                Name = "middlename",
+                DataPropertyName = "middlename",
                 HeaderText = "Middle Name",
                 Width = 120
             });
@@ -542,8 +691,8 @@ namespace roman_medical_clinic_mis
 
             dgvPatients.Columns.Add(new DataGridViewTextBoxColumn
             {
-                Name = "consultation_date",
-                DataPropertyName = "consultation_date",
+                Name = "consultation",
+                DataPropertyName = "consultation",
                 HeaderText = "Consultation Date",
                 Width = 120
             });
@@ -559,17 +708,17 @@ namespace roman_medical_clinic_mis
 
                     string query = @"
                         SELECT 
-                            patient_id,
+                            id,
                             surname,
-                            given_name,
-                            middle_name,
+                            givenname,
+                            middlename,
                             address,
                             sex,
                             birthdate,
-                            TIMESTAMPDIFF(YEAR, birthdate, CURDATE()) as age,
-                            consultation_date
+                            age,
+                            consultation
                         FROM pedia_patients
-                        ORDER BY consultation_date DESC, surname ASC";
+                        ORDER BY consultation DESC, surname ASC";
 
                     MySqlCommand command = new MySqlCommand(query, connection);
                     MySqlDataAdapter adapter = new MySqlDataAdapter(command);
@@ -600,46 +749,53 @@ namespace roman_medical_clinic_mis
                     StringBuilder queryBuilder = new StringBuilder();
                     queryBuilder.Append(@"
                         SELECT 
-                            patient_id,
+                            id,
                             surname,
-                            given_name,
-                            middle_name,
+                            givenname,
+                            middlename,
                             address,
                             sex,
                             birthdate,
-                            TIMESTAMPDIFF(YEAR, birthdate, CURDATE()) as age,
-                            consultation_date
+                            age,
+                            consultation
                         FROM pedia_patients
                         WHERE 1=1");
 
-                    // Add search criteria
                     List<MySqlParameter> parameters = new List<MySqlParameter>();
 
-                    // Name search (across surname, given_name, and middle_name)
+                    // 1. Name search - works independently of date filters
                     if (!string.IsNullOrWhiteSpace(txtSearchName.Text))
                     {
                         string searchTerm = $"%{txtSearchName.Text.Trim()}%";
-                        queryBuilder.Append(" AND (surname LIKE @SearchTerm OR given_name LIKE @SearchTerm OR middle_name LIKE @SearchTerm)");
+                        queryBuilder.Append(" AND (surname LIKE @SearchTerm OR givenname LIKE @SearchTerm OR middlename LIKE @SearchTerm)");
                         parameters.Add(new MySqlParameter("@SearchTerm", searchTerm));
                     }
 
-                    // Date range search
-                    queryBuilder.Append(" AND consultation_date BETWEEN @FromDate AND @ToDate");
-                    parameters.Add(new MySqlParameter("@FromDate", dtpFromDate.Value.Date));
-                    parameters.Add(new MySqlParameter("@ToDate", dtpToDate.Value.Date.AddDays(1).AddSeconds(-1)));
-
-                    // Specific consultation date
+                    // 2. Only apply date filters if specifically checked/selected by user
                     if (dtpSearchConsult.Checked)
                     {
-                        queryBuilder.Append(" AND DATE(consultation_date) = DATE(@ConsultDate)");
-                        parameters.Add(new MySqlParameter("@ConsultDate", dtpSearchConsult.Value.Date));
+                        queryBuilder.Append(" AND consultation = @ConsultDate");
+                        parameters.Add(new MySqlParameter("@ConsultDate", dtpSearchConsult.Value.ToString("yyyy-MM-dd")));
                     }
 
-                    queryBuilder.Append(" ORDER BY consultation_date DESC, surname ASC");
+                    // 3. Date range filtering - only if user has actually modified the range significantly
+                    DateTime veryOldDate = DateTime.Today.AddYears(-50);
+                    DateTime futureDate = DateTime.Today.AddYears(1);
+
+                    bool hasCustomDateRange = dtpFromDate.Value.Date != veryOldDate.Date ||
+                                            dtpToDate.Value.Date != futureDate.Date;
+
+                    if (hasCustomDateRange && !dtpSearchConsult.Checked)
+                    {
+                        queryBuilder.Append(" AND consultation BETWEEN @FromDate AND @ToDate");
+                        parameters.Add(new MySqlParameter("@FromDate", dtpFromDate.Value.ToString("yyyy-MM-dd")));
+                        parameters.Add(new MySqlParameter("@ToDate", dtpToDate.Value.ToString("yyyy-MM-dd")));
+                    }
+
+                    queryBuilder.Append(" ORDER BY consultation DESC, surname ASC");
 
                     using (MySqlCommand command = new MySqlCommand(queryBuilder.ToString(), connection))
                     {
-                        // Add parameters to command
                         foreach (var param in parameters)
                         {
                             command.Parameters.Add(param);
@@ -650,8 +806,6 @@ namespace roman_medical_clinic_mis
                         adapter.Fill(dataTable);
 
                         dgvPatients.DataSource = dataTable;
-
-                        // Update filtered count
                         lblTotalPatients.Text = $"Total No. of Pedia Patients: {dataTable.Rows.Count}";
                     }
                 }
@@ -673,16 +827,16 @@ namespace roman_medical_clinic_mis
 
                     string query = @"
                         SELECT 
-                            patient_id,
+                            id,
                             surname,
-                            given_name,
-                            middle_name,
+                            givenname,
+                            middlename,
                             address,
                             sex,
                             birthdate,
-                            consultation_date
+                            consultation
                         FROM pedia_patients
-                        WHERE patient_id = @PatientId";
+                        WHERE id = @PatientId";
 
                     using (MySqlCommand command = new MySqlCommand(query, connection))
                     {
@@ -694,12 +848,22 @@ namespace roman_medical_clinic_mis
                             {
                                 // Populate form fields
                                 txtSurname.Text = reader["surname"].ToString();
-                                txtGivenName.Text = reader["given_name"].ToString();
-                                txtMiddleName.Text = reader["middle_name"].ToString();
+                                txtGivenName.Text = reader["givenname"].ToString();
+                                txtMiddleName.Text = reader["middlename"].ToString();
                                 txtAddress.Text = reader["address"].ToString();
                                 cmbSex.Text = reader["sex"].ToString();
-                                dtpBirthdate.Value = Convert.ToDateTime(reader["birthdate"]);
-                                dtpConsultDate.Value = Convert.ToDateTime(reader["consultation_date"]);
+
+                                // Handle birthdate as string
+                                if (DateTime.TryParse(reader["birthdate"].ToString(), out DateTime birthdate))
+                                {
+                                    dtpBirthdate.Value = birthdate;
+                                }
+
+                                // Handle consultation as string
+                                if (DateTime.TryParse(reader["consultation"].ToString(), out DateTime consultation))
+                                {
+                                    dtpConsultDate.Value = consultation;
+                                }
 
                                 // Calculate age based on birthdate
                                 CalculateAge();
@@ -762,6 +926,48 @@ namespace roman_medical_clinic_mis
                 return false;
             }
 
+            // Pediatric-specific validation: Check if patient is 18 years and 364 days or younger
+            DateTime birthdate = dtpBirthdate.Value;
+            DateTime today = DateTime.Today;
+
+            // Calculate age in years
+            int ageInYears = today.Year - birthdate.Year;
+            if (birthdate.Date > today.AddYears(-ageInYears))
+                ageInYears--;
+
+            // If patient is 19 or older, they cannot be in pediatric records
+            if (ageInYears >= 19)
+            {
+                MessageBox.Show(
+                    "This patient cannot be registered in Pediatric Records.\n\n" +
+                    "Pediatrics is for patients up to 18 years and 364 days old.\n" +
+                    "Adult Records are for patients 19 years old and above.\n\n" +
+                    "Please use the Adult Medical Records form instead.",
+                    "Age Restriction", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                dtpBirthdate.Focus();
+                return false;
+            }
+
+            // Additional check: if patient is exactly 18 years old, check if they've reached 365 days (19th birthday)
+            if (ageInYears == 18)
+            {
+                DateTime eighteenthBirthday = birthdate.AddYears(18);
+                DateTime nineteenthBirthday = birthdate.AddYears(19);
+
+                // If today is the 19th birthday or after, they're too old for pediatrics
+                if (today >= nineteenthBirthday)
+                {
+                    MessageBox.Show(
+                        "This patient cannot be registered in Pediatric Records.\n\n" +
+                        "Pediatrics is for patients up to 18 years and 364 days old.\n" +
+                        "This patient is now 19 years old or older.\n\n" +
+                        "Please use the Adult Medical Records form instead.",
+                        "Age Restriction", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    dtpBirthdate.Focus();
+                    return false;
+                }
+            }
+
             return true;
         }
 
@@ -776,13 +982,15 @@ namespace roman_medical_clinic_mis
                     string query = @"
                         INSERT INTO pedia_patients (
                             surname,
-                            given_name,
-                            middle_name,
+                            givenname,
+                            middlename,
                             address,
                             sex,
                             birthdate,
-                            consultation_date,
-                            created_at
+                            age,
+                            consultation,
+                            dateadded,
+                            idtime
                         ) VALUES (
                             @Surname,
                             @GivenName,
@@ -790,8 +998,10 @@ namespace roman_medical_clinic_mis
                             @Address,
                             @Sex,
                             @Birthdate,
-                            @ConsultationDate,
-                            @CreatedAt
+                            @Age,
+                            @Consultation,
+                            @DateAdded,
+                            @IdTime
                         )";
 
                     using (MySqlCommand command = new MySqlCommand(query, connection))
@@ -801,9 +1011,11 @@ namespace roman_medical_clinic_mis
                         command.Parameters.AddWithValue("@MiddleName", txtMiddleName.Text.Trim());
                         command.Parameters.AddWithValue("@Address", txtAddress.Text.Trim());
                         command.Parameters.AddWithValue("@Sex", cmbSex.Text);
-                        command.Parameters.AddWithValue("@Birthdate", dtpBirthdate.Value.Date);
-                        command.Parameters.AddWithValue("@ConsultationDate", dtpConsultDate.Value);
-                        command.Parameters.AddWithValue("@CreatedAt", DateTime.Now);
+                        command.Parameters.AddWithValue("@Birthdate", dtpBirthdate.Value.ToString("yyyy-MM-dd"));
+                        command.Parameters.AddWithValue("@Age", int.Parse(txtAge.Text));
+                        command.Parameters.AddWithValue("@Consultation", dtpConsultDate.Value.ToString("yyyy-MM-dd"));
+                        command.Parameters.AddWithValue("@DateAdded", DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss"));
+                        command.Parameters.AddWithValue("@IdTime", DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss"));
 
                         command.ExecuteNonQuery();
 
@@ -830,14 +1042,15 @@ namespace roman_medical_clinic_mis
                     string query = @"
                         UPDATE pedia_patients SET
                             surname = @Surname,
-                            given_name = @GivenName,
-                            middle_name = @MiddleName,
+                            givenname = @GivenName,
+                            middlename = @MiddleName,
                             address = @Address,
                             sex = @Sex,
                             birthdate = @Birthdate,
-                            consultation_date = @ConsultationDate,
-                            updated_at = @UpdatedAt
-                        WHERE patient_id = @PatientId";
+                            age = @Age,
+                            consultation = @Consultation,
+                            dateupdated = @DateUpdated
+                        WHERE id = @PatientId";
 
                     using (MySqlCommand command = new MySqlCommand(query, connection))
                     {
@@ -847,9 +1060,10 @@ namespace roman_medical_clinic_mis
                         command.Parameters.AddWithValue("@MiddleName", txtMiddleName.Text.Trim());
                         command.Parameters.AddWithValue("@Address", txtAddress.Text.Trim());
                         command.Parameters.AddWithValue("@Sex", cmbSex.Text);
-                        command.Parameters.AddWithValue("@Birthdate", dtpBirthdate.Value.Date);
-                        command.Parameters.AddWithValue("@ConsultationDate", dtpConsultDate.Value);
-                        command.Parameters.AddWithValue("@UpdatedAt", DateTime.Now);
+                        command.Parameters.AddWithValue("@Birthdate", dtpBirthdate.Value.ToString("yyyy-MM-dd"));
+                        command.Parameters.AddWithValue("@Age", int.Parse(txtAge.Text));
+                        command.Parameters.AddWithValue("@Consultation", dtpConsultDate.Value.ToString("yyyy-MM-dd"));
+                        command.Parameters.AddWithValue("@DateUpdated", DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss"));
 
                         command.ExecuteNonQuery();
 
@@ -873,7 +1087,7 @@ namespace roman_medical_clinic_mis
                 {
                     connection.Open();
 
-                    string query = "DELETE FROM pedia_patients WHERE patient_id = @PatientId";
+                    string query = "DELETE FROM pedia_patients WHERE id = @PatientId";
 
                     using (MySqlCommand command = new MySqlCommand(query, connection))
                     {

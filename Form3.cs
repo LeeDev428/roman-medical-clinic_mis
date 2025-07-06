@@ -14,7 +14,7 @@ namespace roman_medical_clinic_mis
     public partial class Form3 : Form
     {
         // Database connection string
-        private string connectionString = "server=localhost;database=roman_medical_clinic_db;uid=root;pwd=;";
+        private string connectionString = "server=localhost;database=db_roman_clinic;uid=root;pwd=;";
         private int selectedPatientId = 0;
         private bool isEditMode = false;
 
@@ -27,12 +27,17 @@ namespace roman_medical_clinic_mis
             SetupDataGridView();
             ClearFields();
 
-            // Set default dates
+            // Set default dates - keep only birthdate and consultation date for new patients
             dtpBirthdate.Value = DateTime.Today.AddYears(-30); // Default to adult age
             dtpConsultDate.Value = DateTime.Today;
-            dtpSearchConsult.Value = DateTime.Today;
-            dtpFromDate.Value = DateTime.Today.AddDays(-30);
-            dtpToDate.Value = DateTime.Today;
+
+            // Make search date pickers blank/unchecked initially
+            dtpSearchConsult.ShowCheckBox = true;
+            dtpSearchConsult.Checked = false;
+
+            // Set from/to dates to extreme ranges but don't use them in filtering
+            dtpFromDate.Value = DateTime.Today.AddYears(-50); // Very old date
+            dtpToDate.Value = DateTime.Today.AddYears(1);     // Future date
         }
 
         private void Form3_Load(object sender, EventArgs e)
@@ -158,7 +163,7 @@ namespace roman_medical_clinic_mis
         {
             if (e.RowIndex >= 0)
             {
-                selectedPatientId = Convert.ToInt32(dgvPatients.Rows[e.RowIndex].Cells["patient_id"].Value);
+                selectedPatientId = Convert.ToInt32(dgvPatients.Rows[e.RowIndex].Cells["id"].Value);
                 LoadPatientDetails(selectedPatientId);
             }
         }
@@ -359,14 +364,14 @@ namespace roman_medical_clinic_mis
                         string query = @"
                     SELECT 
                         surname,
-                        given_name,
-                        middle_name,
+                        givenname,
+                        middlename,
                         address,
                         sex,
-                        TIMESTAMPDIFF(YEAR, birthdate, CURDATE()) as age,
+                        age,
                         birthdate
                     FROM adult_patients
-                    WHERE patient_id = @PatientId";
+                    WHERE id = @PatientId";
 
                         using (MySqlCommand command = new MySqlCommand(query, connection))
                         {
@@ -376,7 +381,7 @@ namespace roman_medical_clinic_mis
                             {
                                 if (reader.Read())
                                 {
-                                    string fullName = $"{reader["given_name"]} {reader["middle_name"]} {reader["surname"]}";
+                                    string fullName = $"{reader["givenname"]} {reader["middlename"]} {reader["surname"]}";
                                     string address = reader["address"].ToString();
                                     string sexAge = $"{reader["sex"]}/{reader["age"]}";
 
@@ -447,8 +452,8 @@ namespace roman_medical_clinic_mis
             // Add columns
             dgvPatients.Columns.Add(new DataGridViewTextBoxColumn
             {
-                Name = "patient_id",
-                DataPropertyName = "patient_id",
+                Name = "id",
+                DataPropertyName = "id",
                 HeaderText = "ID",
                 Visible = false
             });
@@ -463,16 +468,16 @@ namespace roman_medical_clinic_mis
 
             dgvPatients.Columns.Add(new DataGridViewTextBoxColumn
             {
-                Name = "given_name",
-                DataPropertyName = "given_name",
+                Name = "givenname",
+                DataPropertyName = "givenname",
                 HeaderText = "Given Name",
                 Width = 120
             });
 
             dgvPatients.Columns.Add(new DataGridViewTextBoxColumn
             {
-                Name = "middle_name",
-                DataPropertyName = "middle_name",
+                Name = "middlename",
+                DataPropertyName = "middlename",
                 HeaderText = "Middle Name",
                 Width = 120
             });
@@ -511,8 +516,8 @@ namespace roman_medical_clinic_mis
 
             dgvPatients.Columns.Add(new DataGridViewTextBoxColumn
             {
-                Name = "consultation_date",
-                DataPropertyName = "consultation_date",
+                Name = "consultation",
+                DataPropertyName = "consultation",
                 HeaderText = "Consultation Date",
                 Width = 120
             });
@@ -528,17 +533,17 @@ namespace roman_medical_clinic_mis
 
                     string query = @"
                         SELECT 
-                            patient_id,
+                            id,
                             surname,
-                            given_name,
-                            middle_name,
+                            givenname,
+                            middlename,
                             address,
                             sex,
                             birthdate,
-                            TIMESTAMPDIFF(YEAR, birthdate, CURDATE()) as age,
-                            consultation_date
+                            age,
+                            consultation
                         FROM adult_patients
-                        ORDER BY consultation_date DESC, surname ASC";
+                        ORDER BY consultation DESC, surname ASC";
 
                     MySqlCommand command = new MySqlCommand(query, connection);
                     MySqlDataAdapter adapter = new MySqlDataAdapter(command);
@@ -569,46 +574,53 @@ namespace roman_medical_clinic_mis
                     StringBuilder queryBuilder = new StringBuilder();
                     queryBuilder.Append(@"
                         SELECT 
-                            patient_id,
+                            id,
                             surname,
-                            given_name,
-                            middle_name,
+                            givenname,
+                            middlename,
                             address,
                             sex,
                             birthdate,
-                            TIMESTAMPDIFF(YEAR, birthdate, CURDATE()) as age,
-                            consultation_date
+                            age,
+                            consultation
                         FROM adult_patients
                         WHERE 1=1");
 
-                    // Add search criteria
                     List<MySqlParameter> parameters = new List<MySqlParameter>();
 
-                    // Name search (across surname, given_name, and middle_name)
+                    // 1. Name search - works independently of date filters
                     if (!string.IsNullOrWhiteSpace(txtSearchName.Text))
                     {
                         string searchTerm = $"%{txtSearchName.Text.Trim()}%";
-                        queryBuilder.Append(" AND (surname LIKE @SearchTerm OR given_name LIKE @SearchTerm OR middle_name LIKE @SearchTerm)");
+                        queryBuilder.Append(" AND (surname LIKE @SearchTerm OR givenname LIKE @SearchTerm OR middlename LIKE @SearchTerm)");
                         parameters.Add(new MySqlParameter("@SearchTerm", searchTerm));
                     }
 
-                    // Date range search
-                    queryBuilder.Append(" AND consultation_date BETWEEN @FromDate AND @ToDate");
-                    parameters.Add(new MySqlParameter("@FromDate", dtpFromDate.Value.Date));
-                    parameters.Add(new MySqlParameter("@ToDate", dtpToDate.Value.Date.AddDays(1).AddSeconds(-1)));
-
-                    // Specific consultation date
+                    // 2. Only apply date filters if specifically checked/selected by user
                     if (dtpSearchConsult.Checked)
                     {
-                        queryBuilder.Append(" AND DATE(consultation_date) = DATE(@ConsultDate)");
-                        parameters.Add(new MySqlParameter("@ConsultDate", dtpSearchConsult.Value.Date));
+                        queryBuilder.Append(" AND consultation = @ConsultDate");
+                        parameters.Add(new MySqlParameter("@ConsultDate", dtpSearchConsult.Value.ToString("yyyy-MM-dd")));
+                    }
+                    
+                    // 3. Date range filtering - only if user has actually modified the range significantly
+                    DateTime veryOldDate = DateTime.Today.AddYears(-50);
+                    DateTime futureDate = DateTime.Today.AddYears(1);
+                    
+                    bool hasCustomDateRange = dtpFromDate.Value.Date != veryOldDate.Date || 
+                                            dtpToDate.Value.Date != futureDate.Date;
+
+                    if (hasCustomDateRange && !dtpSearchConsult.Checked)
+                    {
+                        queryBuilder.Append(" AND consultation BETWEEN @FromDate AND @ToDate");
+                        parameters.Add(new MySqlParameter("@FromDate", dtpFromDate.Value.ToString("yyyy-MM-dd")));
+                        parameters.Add(new MySqlParameter("@ToDate", dtpToDate.Value.ToString("yyyy-MM-dd")));
                     }
 
-                    queryBuilder.Append(" ORDER BY consultation_date DESC, surname ASC");
+                    queryBuilder.Append(" ORDER BY consultation DESC, surname ASC");
 
                     using (MySqlCommand command = new MySqlCommand(queryBuilder.ToString(), connection))
                     {
-                        // Add parameters to command
                         foreach (var param in parameters)
                         {
                             command.Parameters.Add(param);
@@ -619,8 +631,6 @@ namespace roman_medical_clinic_mis
                         adapter.Fill(dataTable);
 
                         dgvPatients.DataSource = dataTable;
-
-                        // Update filtered count
                         lblTotalPatients.Text = $"Total No. of Adult Patients: {dataTable.Rows.Count}";
                     }
                 }
@@ -642,16 +652,16 @@ namespace roman_medical_clinic_mis
 
                     string query = @"
                         SELECT 
-                            patient_id,
+                            id,
                             surname,
-                            given_name,
-                            middle_name,
+                            givenname,
+                            middlename,
                             address,
                             sex,
                             birthdate,
-                            consultation_date
+                            consultation
                         FROM adult_patients
-                        WHERE patient_id = @PatientId";
+                        WHERE id = @PatientId";
 
                     using (MySqlCommand command = new MySqlCommand(query, connection))
                     {
@@ -663,12 +673,22 @@ namespace roman_medical_clinic_mis
                             {
                                 // Populate form fields
                                 txtSurname.Text = reader["surname"].ToString();
-                                txtGivenName.Text = reader["given_name"].ToString();
-                                txtMiddleName.Text = reader["middle_name"].ToString();
+                                txtGivenName.Text = reader["givenname"].ToString();
+                                txtMiddleName.Text = reader["middlename"].ToString();
                                 txtAddress.Text = reader["address"].ToString();
                                 cmbSex.Text = reader["sex"].ToString();
-                                dtpBirthdate.Value = Convert.ToDateTime(reader["birthdate"]);
-                                dtpConsultDate.Value = Convert.ToDateTime(reader["consultation_date"]);
+
+                                // Handle birthdate as string
+                                if (DateTime.TryParse(reader["birthdate"].ToString(), out DateTime birthdate))
+                                {
+                                    dtpBirthdate.Value = birthdate;
+                                }
+
+                                // Handle consultation as string
+                                if (DateTime.TryParse(reader["consultation"].ToString(), out DateTime consultation))
+                                {
+                                    dtpConsultDate.Value = consultation;
+                                }
 
                                 // Calculate age based on birthdate
                                 CalculateAge();
@@ -762,13 +782,16 @@ namespace roman_medical_clinic_mis
                     string query = @"
                         INSERT INTO adult_patients (
                             surname,
-                            given_name,
-                            middle_name,
+                            givenname,
+                            middlename,
                             address,
                             sex,
                             birthdate,
-                            consultation_date,
-                            created_at
+                            age,
+                            consultation,
+                            dateadded,
+                            idtime,
+                            status
                         ) VALUES (
                             @Surname,
                             @GivenName,
@@ -776,8 +799,11 @@ namespace roman_medical_clinic_mis
                             @Address,
                             @Sex,
                             @Birthdate,
-                            @ConsultationDate,
-                            @CreatedAt
+                            @Age,
+                            @Consultation,
+                            @DateAdded,
+                            @IdTime,
+                            @Status
                         )";
 
                     using (MySqlCommand command = new MySqlCommand(query, connection))
@@ -787,9 +813,12 @@ namespace roman_medical_clinic_mis
                         command.Parameters.AddWithValue("@MiddleName", txtMiddleName.Text.Trim());
                         command.Parameters.AddWithValue("@Address", txtAddress.Text.Trim());
                         command.Parameters.AddWithValue("@Sex", cmbSex.Text);
-                        command.Parameters.AddWithValue("@Birthdate", dtpBirthdate.Value.Date);
-                        command.Parameters.AddWithValue("@ConsultationDate", dtpConsultDate.Value);
-                        command.Parameters.AddWithValue("@CreatedAt", DateTime.Now);
+                        command.Parameters.AddWithValue("@Birthdate", dtpBirthdate.Value.ToString("yyyy-MM-dd"));
+                        command.Parameters.AddWithValue("@Age", int.Parse(txtAge.Text));
+                        command.Parameters.AddWithValue("@Consultation", dtpConsultDate.Value.ToString("yyyy-MM-dd"));
+                        command.Parameters.AddWithValue("@DateAdded", DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss"));
+                        command.Parameters.AddWithValue("@IdTime", DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss"));
+                        command.Parameters.AddWithValue("@Status", "Active");
 
                         command.ExecuteNonQuery();
 
@@ -816,14 +845,15 @@ namespace roman_medical_clinic_mis
                     string query = @"
                         UPDATE adult_patients SET
                             surname = @Surname,
-                            given_name = @GivenName,
-                            middle_name = @MiddleName,
+                            givenname = @GivenName,
+                            middlename = @MiddleName,
                             address = @Address,
                             sex = @Sex,
                             birthdate = @Birthdate,
-                            consultation_date = @ConsultationDate,
-                            updated_at = @UpdatedAt
-                        WHERE patient_id = @PatientId";
+                            age = @Age,
+                            consultation = @Consultation,
+                            dateupdated = @DateUpdated
+                        WHERE id = @PatientId";
 
                     using (MySqlCommand command = new MySqlCommand(query, connection))
                     {
@@ -833,9 +863,10 @@ namespace roman_medical_clinic_mis
                         command.Parameters.AddWithValue("@MiddleName", txtMiddleName.Text.Trim());
                         command.Parameters.AddWithValue("@Address", txtAddress.Text.Trim());
                         command.Parameters.AddWithValue("@Sex", cmbSex.Text);
-                        command.Parameters.AddWithValue("@Birthdate", dtpBirthdate.Value.Date);
-                        command.Parameters.AddWithValue("@ConsultationDate", dtpConsultDate.Value);
-                        command.Parameters.AddWithValue("@UpdatedAt", DateTime.Now);
+                        command.Parameters.AddWithValue("@Birthdate", dtpBirthdate.Value.ToString("yyyy-MM-dd"));
+                        command.Parameters.AddWithValue("@Age", int.Parse(txtAge.Text));
+                        command.Parameters.AddWithValue("@Consultation", dtpConsultDate.Value.ToString("yyyy-MM-dd"));
+                        command.Parameters.AddWithValue("@DateUpdated", DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss"));
 
                         command.ExecuteNonQuery();
 
@@ -859,7 +890,7 @@ namespace roman_medical_clinic_mis
                 {
                     connection.Open();
 
-                    string query = "DELETE FROM adult_patients WHERE patient_id = @PatientId";
+                    string query = "DELETE FROM adult_patients WHERE id = @PatientId";
 
                     using (MySqlCommand command = new MySqlCommand(query, connection))
                     {

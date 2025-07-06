@@ -36,6 +36,8 @@
             this.lblSystemRequirements = new System.Windows.Forms.Label();
             this.lblSysReqDetails = new System.Windows.Forms.Label();
             this.pnlLeft = new System.Windows.Forms.Panel();
+            this.txtLicensure = new System.Windows.Forms.TextBox();
+            this.lblLicensure = new System.Windows.Forms.Label();
             this.lblClinicInfo = new System.Windows.Forms.Label();
             this.btnSave = new System.Windows.Forms.Button();
             this.pnlFooter = new System.Windows.Forms.Panel();
@@ -100,7 +102,7 @@
             // 
             // pnlRight
             // 
-            this.pnlRight.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Bottom) 
+            this.pnlRight.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Bottom)
             | System.Windows.Forms.AnchorStyles.Right)));
             this.pnlRight.BackColor = System.Drawing.Color.White;
             this.pnlRight.Controls.Add(this.lblSystemRequirements);
@@ -129,20 +131,50 @@
             this.lblSysReqDetails.Name = "lblSysReqDetails";
             this.lblSysReqDetails.Size = new System.Drawing.Size(360, 230);
             this.lblSysReqDetails.TabIndex = 1;
-            this.lblSysReqDetails.Text = "Operating System: Windows 10/8/7\r\n\r\n.NET Framework 4.8 or higher\r\n\r\n4GB RAM or h" +
-                "igher\r\n\r\nMinimum 1366 x 768 screen resolution\r\n\r\nMicrosoft SQL Server Express or h" +
-                "igher\r\n\r\n100 MB of free disk space";
+            this.lblSysReqDetails.Text = "Softwares needed:\r\n" +
+                "Compatibility: Windows PC/OS(7/8/10/11)\r\n" +
+                "Xampp 1.7.7 to 3.3.2\r\n" +
+                ".Net Framwork 4.5 to 4.8\r\n\r\n" +
+                "Hardwares Needed:\r\n" +
+                "Processor: Intel Core i3 3rd gen to core i9 atleast\r\n   speed 3.0Ghz\r\n" +
+                "RAM: 4GB to 16GB\r\n" +
+                "Storage: atleast 500GB to 1TB HDD/SSD\r\n" +
+                "Keyboard/Mouse: Any Brand\r\n" +
+                "Monitor: atleast 20 inches (atleast 1920x1080\r\n   resolution)\r\n" +
+                "Internet/Wifi: Any Network atleast 50mbps";
             // 
             // pnlLeft
             // 
-            this.pnlLeft.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Bottom) 
+            this.pnlLeft.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Bottom)
             | System.Windows.Forms.AnchorStyles.Left)));
             this.pnlLeft.BackColor = System.Drawing.Color.White;
+            this.pnlLeft.Controls.Add(this.txtLicensure);
+            this.pnlLeft.Controls.Add(this.lblLicensure);
             this.pnlLeft.Controls.Add(this.lblClinicInfo);
             this.pnlLeft.Location = new System.Drawing.Point(20, 20);
             this.pnlLeft.Name = "pnlLeft";
             this.pnlLeft.Size = new System.Drawing.Size(370, 280);
             this.pnlLeft.TabIndex = 1;
+            // 
+            // txtLicensure
+            // 
+            this.txtLicensure.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
+            this.txtLicensure.Font = new System.Drawing.Font("Arial", 9.75F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
+            this.txtLicensure.Location = new System.Drawing.Point(13, 230);
+            this.txtLicensure.Name = "txtLicensure";
+            this.txtLicensure.Size = new System.Drawing.Size(347, 22);
+            this.txtLicensure.TabIndex = 2;
+            // 
+            // lblLicensure
+            // 
+            this.lblLicensure.AutoSize = true;
+            this.lblLicensure.Font = new System.Drawing.Font("Arial", 9.75F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
+            this.lblLicensure.ForeColor = System.Drawing.Color.Black;
+            this.lblLicensure.Location = new System.Drawing.Point(10, 210);
+            this.lblLicensure.Name = "lblLicensure";
+            this.lblLicensure.Size = new System.Drawing.Size(75, 16);
+            this.lblLicensure.TabIndex = 1;
+            this.lblLicensure.Text = "LICENSURE";
             // 
             // lblClinicInfo
             // 
@@ -150,17 +182,15 @@
             this.lblClinicInfo.ForeColor = System.Drawing.Color.Black;
             this.lblClinicInfo.Location = new System.Drawing.Point(10, 10);
             this.lblClinicInfo.Name = "lblClinicInfo";
-            this.lblClinicInfo.Size = new System.Drawing.Size(350, 260);
+            this.lblClinicInfo.Size = new System.Drawing.Size(350, 190);
             this.lblClinicInfo.TabIndex = 0;
-            this.lblClinicInfo.Text = "ROMAN MEDICAL CLINIC SYSTEM\r\n\r\n" +
-                "Email: roman@medicalclinic.com\r\n\r\n" +
-                "Doctor: IAN PHILLIP C. ROMAN, RMT, MD, DPPS\r\n\r\n" +
-                "Diplomate of the Philippine Pediatric Society\r\n\r\n" +
+            this.lblClinicInfo.Text = "ROMAN MEDICAL CLINIC SYSTEM\r\n" +
+                "Rizal, Imatong Pililla Rizal\r\n" +
+                "Rizal, Philippines, 1910\r\n\r\n" +
+                "Owner: IAN PHILLIP C. ROMAN, RMT, MD, DPPS\r\n" +
+                "Diplomate of the Philippine Pediatric Society\r\n" +
                 "PEDIATRICIAN/GENERAL MEDICINE\r\n\r\n" +
-                "Facebook page: @romanmedicalclinic\r\n\r\n" +
-                "CLINIC HOURS:\r\n" +
-                "MON-FRI: 9:00 AM - 5:00 PM\r\n" +
-                "SAT: 9:00 AM - 12:00 PM";
+                "Facebook page: @romanmedicalclinic";
             // 
             // btnSave
             // 
@@ -197,8 +227,7 @@
             this.lblFooter.Name = "lblFooter";
             this.lblFooter.Size = new System.Drawing.Size(800, 30);
             this.lblFooter.TabIndex = 0;
-            this.lblFooter.Text = "Developer: Ian Phillip C. Roman | 6/28/2023 | 4:23:55 PM | Copyright 2023 | All Ri" +
-                "ghts Reserved | Powered by Ian-Tech";
+            this.lblFooter.Text = "Copyright 2023 | All Rights Reserved | Powered By: Ian Phillip C. Roman, RMT, MD, DPPS | Pediatrician | PRC: 123456";
             this.lblFooter.TextAlign = System.Drawing.ContentAlignment.MiddleCenter;
             // 
             // Form8
@@ -213,12 +242,14 @@
             this.Name = "Form8";
             this.StartPosition = System.Windows.Forms.FormStartPosition.CenterScreen;
             this.Text = "About Us";
+            this.Load += new System.EventHandler(this.Form8_Load);
             this.pnlHeader.ResumeLayout(false);
             this.pnlHeader.PerformLayout();
             this.pnlMain.ResumeLayout(false);
             this.pnlRight.ResumeLayout(false);
             this.pnlRight.PerformLayout();
             this.pnlLeft.ResumeLayout(false);
+            this.pnlLeft.PerformLayout();
             this.pnlFooter.ResumeLayout(false);
             this.ResumeLayout(false);
         }
@@ -237,5 +268,7 @@
         private System.Windows.Forms.Label lblSystemRequirements;
         private System.Windows.Forms.Label lblSysReqDetails;
         private System.Windows.Forms.Button btnClose;
+        private System.Windows.Forms.Label lblLicensure;
+        private System.Windows.Forms.TextBox txtLicensure;
     }
 }

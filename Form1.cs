@@ -17,7 +17,7 @@ namespace roman_medical_clinic_mis
     public partial class Form1 : Form
     {
         // Update this connection string for your Laragon MySQL setup
-        private string connectionString = "server=localhost;database=roman_medical_clinic_db;uid=root;pwd=;";
+        private string connectionString = "server=localhost;database=db_roman_clinic;uid=root;pwd=;";
 
         public Form1()
         {
@@ -61,7 +61,7 @@ namespace roman_medical_clinic_mis
                     using (MySqlConnection connection = new MySqlConnection(connectionString))
                     {
                         connection.Open();
-                        string query = "SELECT user_id, user_type, full_name FROM users WHERE username = @Username AND password = @Password AND is_active = 1";
+                        string query = "SELECT id, usertype, fullname FROM users WHERE username = @Username AND password = @Password AND status = 'Active'";
 
                         using (MySqlCommand command = new MySqlCommand(query, connection))
                         {
@@ -72,9 +72,9 @@ namespace roman_medical_clinic_mis
                             {
                                 if (reader.Read())
                                 {
-                                    int userId = reader.GetInt32("user_id");
-                                    string userType = reader.GetString("user_type");
-                                    string fullName = reader.GetString("full_name");
+                                    int userId = reader.GetInt32("id");
+                                    string userType = reader.GetString("usertype");
+                                    string fullName = reader.GetString("fullname");
 
                                     MessageBox.Show($"Welcome, {fullName}!\nUser Type: {userType}", "Login Successful",
                                         MessageBoxButtons.OK, MessageBoxIcon.Information);
@@ -136,7 +136,7 @@ namespace roman_medical_clinic_mis
                         }
 
                         // Check if email already exists
-                        string checkEmailQuery = "SELECT COUNT(*) FROM users WHERE email_address = @Email";
+                        string checkEmailQuery = "SELECT COUNT(*) FROM users WHERE email = @Email";
                         using (MySqlCommand checkEmailCommand = new MySqlCommand(checkEmailQuery, connection))
                         {
                             checkEmailCommand.Parameters.AddWithValue("@Email", txtEmailAddress.Text.Trim());
@@ -151,22 +151,22 @@ namespace roman_medical_clinic_mis
                         }
 
                         // Insert new user
-                        string insertQuery = @"INSERT INTO users (full_name, full_address, contact_number, email_address, 
-                                             user_type, username, password, created_date, is_active) 
-                                             VALUES (@FullName, @FullAddress, @ContactNumber, @EmailAddress, 
-                                             @UserType, @Username, @Password, @CreatedDate, @IsActive)";
+                        string insertQuery = @"INSERT INTO users (fullname, fulladdress, contactno, email, 
+                                             usertype, username, password, dateregistration, status) 
+                                             VALUES (@FullName, @FullAddress, @ContactNumber, @Email, 
+                                             @UserType, @Username, @Password, @DateRegistration, @Status)";
 
                         using (MySqlCommand command = new MySqlCommand(insertQuery, connection))
                         {
                             command.Parameters.AddWithValue("@FullName", txtFullname.Text.Trim());
                             command.Parameters.AddWithValue("@FullAddress", txtFullAddress.Text.Trim());
                             command.Parameters.AddWithValue("@ContactNumber", txtContactNumber.Text.Trim());
-                            command.Parameters.AddWithValue("@EmailAddress", txtEmailAddress.Text.Trim());
+                            command.Parameters.AddWithValue("@Email", txtEmailAddress.Text.Trim());
                             command.Parameters.AddWithValue("@UserType", cmbUserType.SelectedItem.ToString());
                             command.Parameters.AddWithValue("@Username", txtUsernameSignup.Text.Trim());
                             command.Parameters.AddWithValue("@Password", HashPassword(txtPasswordSignup.Text));
-                            command.Parameters.AddWithValue("@CreatedDate", DateTime.Now);
-                            command.Parameters.AddWithValue("@IsActive", true);
+                            command.Parameters.AddWithValue("@DateRegistration", DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss"));
+                            command.Parameters.AddWithValue("@Status", "Active");
 
                             command.ExecuteNonQuery();
 

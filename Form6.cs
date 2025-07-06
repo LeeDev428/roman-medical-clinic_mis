@@ -14,7 +14,7 @@ namespace roman_medical_clinic_mis
     public partial class Form6 : Form
     {
         // Database connection string
-        private string connectionString = "server=localhost;database=roman_medical_clinic_db;uid=root;pwd=;";
+        private string connectionString = "server=localhost;database=db_roman_clinic;uid=root;pwd=;";
 
         // Patient data properties
         private int patientId = 0;
@@ -256,9 +256,26 @@ namespace roman_medical_clinic_mis
         {
             try
             {
-                // Save implementation (the full method body from previous response)
-                // ...
-                
+                using (MySqlConnection connection = new MySqlConnection(connectionString))
+                {
+                    connection.Open();
+
+                    // Save medications data
+                    SaveMedicationsData(connection);
+
+                    // Save physical examination data
+                    SavePhysicalExamData(connection);
+
+                    // Save diagnosis data
+                    SaveDiagnosisData(connection);
+
+                    // Save vaccinations data
+                    SaveVaccinationsData(connection);
+
+                    // Save past medical history data
+                    SavePastMedicalData(connection);
+                }
+
                 hasUnsavedChanges = false;
                 MessageBox.Show("Consultation data saved successfully!", "Success",
                     MessageBoxButtons.OK, MessageBoxIcon.Information);
@@ -289,11 +306,17 @@ namespace roman_medical_clinic_mis
                     // Load medications data
                     LoadMedicationsData(connection);
 
-                    // Load examination and diagnosis data
-                    LoadExaminationData(connection);
+                    // Load physical examination data
+                    LoadPhysicalExamData(connection);
 
-                    // Load clinical data (vaccines, history, etc.)
-                    LoadClinicalData(connection);
+                    // Load diagnosis data
+                    LoadDiagnosisData(connection);
+
+                    // Load vaccinations data
+                    LoadVaccinationsData(connection);
+
+                    // Load past medical history data
+                    LoadPastMedicalData(connection);
                 }
             }
             catch (Exception ex)
@@ -311,93 +334,313 @@ namespace roman_medical_clinic_mis
         private void LoadMedicationsData(MySqlConnection connection)
         {
             string query = @"
-                SELECT medication_details 
+                SELECT medi1, medi2, medi3, medi4, medi5, medi6, medi7, medi8, medi9, medi10
                 FROM pedia_medications 
-                WHERE patient_id = @PatientId 
-                AND DATE(consultation_date) = DATE(@ConsultationDate)
-                ORDER BY created_at DESC LIMIT 1";
+                WHERE surname = @Surname AND givername = @GivenName AND middlename = @MiddleName
+                ORDER BY id DESC LIMIT 1";
 
             using (MySqlCommand command = new MySqlCommand(query, connection))
             {
-                command.Parameters.AddWithValue("@PatientId", patientId);
-                command.Parameters.AddWithValue("@ConsultationDate", consultationDate);
+                command.Parameters.AddWithValue("@Surname", txtSurname.Text);
+                command.Parameters.AddWithValue("@GivenName", txtGivenName.Text);
+                command.Parameters.AddWithValue("@MiddleName", txtMiddleName.Text);
 
                 using (MySqlDataReader reader = command.ExecuteReader())
                 {
                     if (reader.Read())
                     {
-                        txtMedications.Text = reader["medication_details"]?.ToString() ?? string.Empty;
+                        // Combine all medication fields into one text
+                        StringBuilder medications = new StringBuilder();
+                        for (int i = 1; i <= 10; i++)
+                        {
+                            string medi = reader[$"medi{i}"]?.ToString();
+                            if (!string.IsNullOrEmpty(medi))
+                            {
+                                medications.AppendLine(medi);
+                            }
+                        }
+                        txtMedications.Text = medications.ToString().Trim();
                     }
                 }
             }
         }
 
-        private void LoadExaminationData(MySqlConnection connection)
+        private void LoadPhysicalExamData(MySqlConnection connection)
         {
             string query = @"
-                SELECT physical_examination, diagnosis 
-                FROM pedia_examinations 
-                WHERE patient_id = @PatientId 
-                AND DATE(consultation_date) = DATE(@ConsultationDate)
-                ORDER BY created_at DESC LIMIT 1";
+                SELECT pexam1, pexam2, pexam3, pexam4, pexam5, pexam6, pexam7, pexam8, pexam9, pexam10
+                FROM pedia_physical_exam 
+                WHERE surname = @Surname AND givername = @GivenName AND middlename = @MiddleName
+                ORDER BY id DESC LIMIT 1";
 
             using (MySqlCommand command = new MySqlCommand(query, connection))
             {
-                command.Parameters.AddWithValue("@PatientId", patientId);
-                command.Parameters.AddWithValue("@ConsultationDate", consultationDate);
+                command.Parameters.AddWithValue("@Surname", txtSurname.Text);
+                command.Parameters.AddWithValue("@GivenName", txtGivenName.Text);
+                command.Parameters.AddWithValue("@MiddleName", txtMiddleName.Text);
 
                 using (MySqlDataReader reader = command.ExecuteReader())
                 {
                     if (reader.Read())
                     {
-                        txtPhysicalExamination.Text = reader["physical_examination"]?.ToString() ?? string.Empty;
-                        txtDiagnosis.Text = reader["diagnosis"]?.ToString() ?? string.Empty;
+                        // Combine all physical exam fields into one text
+                        StringBuilder physicalExam = new StringBuilder();
+                        for (int i = 1; i <= 10; i++)
+                        {
+                            string pexam = reader[$"pexam{i}"]?.ToString();
+                            if (!string.IsNullOrEmpty(pexam))
+                            {
+                                physicalExam.AppendLine(pexam);
+                            }
+                        }
+                        txtPhysicalExamination.Text = physicalExam.ToString().Trim();
                     }
                 }
             }
         }
 
-        private void LoadClinicalData(MySqlConnection connection)
+        private void LoadDiagnosisData(MySqlConnection connection)
         {
             string query = @"
-                SELECT 
-                    covid_vaccine,
-                    hepatitis_b,
-                    rotavirus,
-                    diphtheria_tetanus_pertussis,
-                    haemophilus_influenza,
-                    pneumococcal,
-                    inactivated_poliovirus,
-                    influenza,
-                    measles_mumps_rubella,
-                    varicella,
-                    hepatitis_a,
-                    meningococcal,
-                    chief_complaint,
-                    history,
-                    past_medical_history
-                FROM pedia_clinical_data 
-                WHERE patient_id = @PatientId 
-                AND DATE(consultation_date) = DATE(@ConsultationDate)
-                ORDER BY created_at DESC LIMIT 1";
+                SELECT diag1, diag2, diag3, diag4, diag5, diag6, diag7, diag8, diag9, diag10
+                FROM pedia_diagnosis 
+                WHERE surname = @Surname AND givername = @GivenName AND middlename = @MiddleName
+                ORDER BY id DESC LIMIT 1";
 
             using (MySqlCommand command = new MySqlCommand(query, connection))
             {
-                command.Parameters.AddWithValue("@PatientId", patientId);
-                command.Parameters.AddWithValue("@ConsultationDate", consultationDate);
+                command.Parameters.AddWithValue("@Surname", txtSurname.Text);
+                command.Parameters.AddWithValue("@GivenName", txtGivenName.Text);
+                command.Parameters.AddWithValue("@MiddleName", txtMiddleName.Text);
 
                 using (MySqlDataReader reader = command.ExecuteReader())
                 {
                     if (reader.Read())
                     {
-                        // Vaccinations
-                        chkCovidVaccine.Checked = Convert.ToBoolean(reader["covid_vaccine"]);
-                        chkHepatitisB.Checked = Convert.ToBoolean(reader["hepatitis_b"]);
-                        chkRotavirus.Checked = Convert.ToBoolean(reader["rotavirus"]);
-                        chkDiphtheria.Checked = Convert.ToBoolean(reader["diphtheria_tetanus_pertussis"]);
+                        // Combine all diagnosis fields into one text
+                        StringBuilder diagnosis = new StringBuilder();
+                        for (int i = 1; i <= 10; i++)
+                        {
+                            string diag = reader[$"diag{i}"]?.ToString();
+                            if (!string.IsNullOrEmpty(diag))
+                            {
+                                diagnosis.AppendLine(diag);
+                            }
+                        }
+                        txtDiagnosis.Text = diagnosis.ToString().Trim();
                     }
                 }
             }
         }
+
+        private void LoadVaccinationsData(MySqlConnection connection)
+        {
+            string query = @"
+                SELECT covidvaccines, hepatitisB, rotavirus, diphtheria, haemophilus, 
+                       pneumococcal, poliovirus, influenza, measles, varicella, hepatitisA, meningococcal
+                FROM pedia_vaccinations 
+                WHERE surname = @Surname AND givenname = @GivenName AND middlename = @MiddleName
+                ORDER BY id DESC LIMIT 1";
+
+            using (MySqlCommand command = new MySqlCommand(query, connection))
+            {
+                command.Parameters.AddWithValue("@Surname", txtSurname.Text);
+                command.Parameters.AddWithValue("@GivenName", txtGivenName.Text);
+                command.Parameters.AddWithValue("@MiddleName", txtMiddleName.Text);
+
+                using (MySqlDataReader reader = command.ExecuteReader())
+                {
+                    if (reader.Read())
+                    {
+                        // Set checkboxes based on database values (assuming "1" means checked, "0" means unchecked)
+                        chkCovidVaccine.Checked = reader["covidvaccines"]?.ToString() == "1";
+                        chkHepatitisB.Checked = reader["hepatitisB"]?.ToString() == "1";
+                        chkRotavirus.Checked = reader["rotavirus"]?.ToString() == "1";
+                        chkDiphtheria.Checked = reader["diphtheria"]?.ToString() == "1";
+                        chkHepatitisA.Checked = reader["hepatitisA"]?.ToString() == "1";
+                        // Add other checkboxes as needed based on your form controls
+                    }
+                }
+            }
+        }
+
+        private void LoadPastMedicalData(MySqlConnection connection)
+        {
+            string query = @"
+                SELECT medi1, medi2, medi3, medi4, medi5, medi6, medi7, medi8, medi9, medi10
+                FROM pedia_past_medi 
+                WHERE surname = @Surname AND givername = @GivenName AND middlename = @MiddleName
+                ORDER BY id DESC LIMIT 1";
+
+            using (MySqlCommand command = new MySqlCommand(query, connection))
+            {
+                command.Parameters.AddWithValue("@Surname", txtSurname.Text);
+                command.Parameters.AddWithValue("@GivenName", txtGivenName.Text);
+                command.Parameters.AddWithValue("@MiddleName", txtMiddleName.Text);
+
+                using (MySqlDataReader reader = command.ExecuteReader())
+                {
+                    if (reader.Read())
+                    {
+                        // Combine all past medical history fields into one text
+                        StringBuilder pastMedical = new StringBuilder();
+                        for (int i = 1; i <= 10; i++)
+                        {
+                            string medi = reader[$"medi{i}"]?.ToString();
+                            if (!string.IsNullOrEmpty(medi))
+                            {
+                                pastMedical.AppendLine(medi);
+                            }
+                        }
+                        txtPastMedicalHistory.Text = pastMedical.ToString().Trim();
+                    }
+                }
+            }
+        }
+
+        #region Save Methods
+
+        private void SaveMedicationsData(MySqlConnection connection)
+        {
+            // Split the medications text into lines and save to medi1-medi10 fields
+            string[] medications = txtMedications.Text.Split(new[] { Environment.NewLine }, StringSplitOptions.RemoveEmptyEntries);
+
+            string query = @"
+                INSERT INTO pedia_medications (surname, givername, middlename, medi1, medi2, medi3, medi4, medi5, medi6, medi7, medi8, medi9, medi10, date1)
+                VALUES (@Surname, @GivenName, @MiddleName, @Medi1, @Medi2, @Medi3, @Medi4, @Medi5, @Medi6, @Medi7, @Medi8, @Medi9, @Medi10, @Date1)";
+
+            using (MySqlCommand command = new MySqlCommand(query, connection))
+            {
+                command.Parameters.AddWithValue("@Surname", txtSurname.Text);
+                command.Parameters.AddWithValue("@GivenName", txtGivenName.Text);
+                command.Parameters.AddWithValue("@MiddleName", txtMiddleName.Text);
+                command.Parameters.AddWithValue("@Date1", DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss"));
+
+                // Add medication parameters (up to 10)
+                for (int i = 1; i <= 10; i++)
+                {
+                    string mediValue = (i <= medications.Length) ? medications[i - 1] : "";
+                    command.Parameters.AddWithValue($"@Medi{i}", mediValue);
+                }
+
+                command.ExecuteNonQuery();
+            }
+        }
+
+        private void SavePhysicalExamData(MySqlConnection connection)
+        {
+            // Split the physical examination text into lines and save to pexam1-pexam10 fields
+            string[] physicalExams = txtPhysicalExamination.Text.Split(new[] { Environment.NewLine }, StringSplitOptions.RemoveEmptyEntries);
+
+            string query = @"
+                INSERT INTO pedia_physical_exam (surname, givername, middlename, pexam1, pexam2, pexam3, pexam4, pexam5, pexam6, pexam7, pexam8, pexam9, pexam10, date1)
+                VALUES (@Surname, @GivenName, @MiddleName, @Pexam1, @Pexam2, @Pexam3, @Pexam4, @Pexam5, @Pexam6, @Pexam7, @Pexam8, @Pexam9, @Pexam10, @Date1)";
+
+            using (MySqlCommand command = new MySqlCommand(query, connection))
+            {
+                command.Parameters.AddWithValue("@Surname", txtSurname.Text);
+                command.Parameters.AddWithValue("@GivenName", txtGivenName.Text);
+                command.Parameters.AddWithValue("@MiddleName", txtMiddleName.Text);
+                command.Parameters.AddWithValue("@Date1", DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss"));
+
+                // Add physical exam parameters (up to 10)
+                for (int i = 1; i <= 10; i++)
+                {
+                    string pexamValue = (i <= physicalExams.Length) ? physicalExams[i - 1] : "";
+                    command.Parameters.AddWithValue($"@Pexam{i}", pexamValue);
+                }
+
+                command.ExecuteNonQuery();
+            }
+        }
+
+        private void SaveDiagnosisData(MySqlConnection connection)
+        {
+            // Split the diagnosis text into lines and save to diag1-diag10 fields
+            string[] diagnoses = txtDiagnosis.Text.Split(new[] { Environment.NewLine }, StringSplitOptions.RemoveEmptyEntries);
+
+            string query = @"
+                INSERT INTO pedia_diagnosis (surname, givername, middlename, diag1, diag2, diag3, diag4, diag5, diag6, diag7, diag8, diag9, diag10, date1)
+                VALUES (@Surname, @GivenName, @MiddleName, @Diag1, @Diag2, @Diag3, @Diag4, @Diag5, @Diag6, @Diag7, @Diag8, @Diag9, @Diag10, @Date1)";
+
+            using (MySqlCommand command = new MySqlCommand(query, connection))
+            {
+                command.Parameters.AddWithValue("@Surname", txtSurname.Text);
+                command.Parameters.AddWithValue("@GivenName", txtGivenName.Text);
+                command.Parameters.AddWithValue("@MiddleName", txtMiddleName.Text);
+                command.Parameters.AddWithValue("@Date1", DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss"));
+
+                // Add diagnosis parameters (up to 10)
+                for (int i = 1; i <= 10; i++)
+                {
+                    string diagValue = (i <= diagnoses.Length) ? diagnoses[i - 1] : "";
+                    command.Parameters.AddWithValue($"@Diag{i}", diagValue);
+                }
+
+                command.ExecuteNonQuery();
+            }
+        }
+
+        private void SaveVaccinationsData(MySqlConnection connection)
+        {
+            string query = @"
+                INSERT INTO pedia_vaccinations (surname, givenname, middlename, covidvaccines, hepatitisB, rotavirus, diphtheria, haemophilus, pneumococcal, poliovirus, influenza, measles, varicella, hepatitisA, meningococcal, date1)
+                VALUES (@Surname, @GivenName, @MiddleName, @CovidVaccines, @HepatitisB, @Rotavirus, @Diphtheria, @Haemophilus, @Pneumococcal, @Poliovirus, @Influenza, @Measles, @Varicella, @HepatitisA, @Meningococcal, @Date1)";
+
+            using (MySqlCommand command = new MySqlCommand(query, connection))
+            {
+                command.Parameters.AddWithValue("@Surname", txtSurname.Text);
+                command.Parameters.AddWithValue("@GivenName", txtGivenName.Text);
+                command.Parameters.AddWithValue("@MiddleName", txtMiddleName.Text);
+                command.Parameters.AddWithValue("@Date1", DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss"));
+
+                // Add vaccination parameters (using "1" for checked, "0" for unchecked)
+                command.Parameters.AddWithValue("@CovidVaccines", chkCovidVaccine.Checked ? "1" : "0");
+                command.Parameters.AddWithValue("@HepatitisB", chkHepatitisB.Checked ? "1" : "0");
+                command.Parameters.AddWithValue("@Rotavirus", chkRotavirus.Checked ? "1" : "0");
+                command.Parameters.AddWithValue("@Diphtheria", chkDiphtheria.Checked ? "1" : "0");
+                command.Parameters.AddWithValue("@HepatitisA", chkHepatitisA.Checked ? "1" : "0");
+
+                // Add default values for other vaccinations if checkboxes don't exist
+                command.Parameters.AddWithValue("@Haemophilus", "0");
+                command.Parameters.AddWithValue("@Pneumococcal", "0");
+                command.Parameters.AddWithValue("@Poliovirus", "0");
+                command.Parameters.AddWithValue("@Influenza", "0");
+                command.Parameters.AddWithValue("@Measles", "0");
+                command.Parameters.AddWithValue("@Varicella", "0");
+                command.Parameters.AddWithValue("@Meningococcal", "0");
+
+                command.ExecuteNonQuery();
+            }
+        }
+
+        private void SavePastMedicalData(MySqlConnection connection)
+        {
+            // Split the past medical history text into lines and save to medi1-medi10 fields
+            string[] pastMedical = txtPastMedicalHistory.Text.Split(new[] { Environment.NewLine }, StringSplitOptions.RemoveEmptyEntries);
+
+            string query = @"
+                INSERT INTO pedia_past_medi (surname, givername, middlename, medi1, medi2, medi3, medi4, medi5, medi6, medi7, medi8, medi9, medi10, date1)
+                VALUES (@Surname, @GivenName, @MiddleName, @Medi1, @Medi2, @Medi3, @Medi4, @Medi5, @Medi6, @Medi7, @Medi8, @Medi9, @Medi10, @Date1)";
+
+            using (MySqlCommand command = new MySqlCommand(query, connection))
+            {
+                command.Parameters.AddWithValue("@Surname", txtSurname.Text);
+                command.Parameters.AddWithValue("@GivenName", txtGivenName.Text);
+                command.Parameters.AddWithValue("@MiddleName", txtMiddleName.Text);
+                command.Parameters.AddWithValue("@Date1", DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss"));
+
+                // Add past medical parameters (up to 10)
+                for (int i = 1; i <= 10; i++)
+                {
+                    string mediValue = (i <= pastMedical.Length) ? pastMedical[i - 1] : "";
+                    command.Parameters.AddWithValue($"@Medi{i}", mediValue);
+                }
+
+                command.ExecuteNonQuery();
+            }
+        }
+
+        #endregion
     }
 }
