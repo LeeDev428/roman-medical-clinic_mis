@@ -18,9 +18,19 @@ namespace roman_medical_clinic_mis
         private int selectedPatientId = 0;
         private bool isEditMode = false;
 
-        public Form2()
+        // Current user information
+        private string currentUserType;
+        private string currentUsername;
+        private string currentFullName;
+
+        public Form2(string userType, string username, string fullName)
         {
             InitializeComponent();
+
+            // Initialize user information
+            currentUserType = userType;
+            currentUsername = username;
+            currentFullName = fullName;
 
             // Initialize UI components
             cmbSex.SelectedIndex = 0; // Default to SELECT
@@ -228,15 +238,17 @@ namespace roman_medical_clinic_mis
         private void btnAdultMedRecords_Click(object sender, EventArgs e)
         {
             // Navigate to adult medical records form
-            Form3 adultRecordsForm = new Form3();
+            Form3 adultRecordsForm = new Form3(currentUserType, currentUsername, currentFullName);
             adultRecordsForm.Show();
             this.Hide();
         }
 
         private void btnUserAccounts_Click(object sender, EventArgs e)
         {
-            MessageBox.Show("User Accounts feature is not implemented in this example.",
-                "Feature Not Available", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            // Open Form9 and pass user info for admin check
+            Form9 userAccountsForm = new Form9(currentUserType, currentUsername, currentFullName);
+            userAccountsForm.Show();
+            this.Hide();
         }
 
         private void btnAboutLicense_Click(object sender, EventArgs e)
@@ -513,7 +525,7 @@ namespace roman_medical_clinic_mis
                 if (AddPatientToQueue(selectedPatientId))
                 {
                     // Navigate to dashboard to show the queue
-                    Form5 dashboardForm = new Form5();
+                    Form5 dashboardForm = new Form5(currentUserType, currentUsername, currentFullName);
                     dashboardForm.Show();
                     this.Hide();
                 }
@@ -597,7 +609,7 @@ namespace roman_medical_clinic_mis
         private void lblDashboard_Click(object sender, EventArgs e)
         {
             // Navigate to dashboard
-            Form5 dashboardForm = new Form5();
+            Form5 dashboardForm = new Form5(currentUserType, currentUsername, currentFullName);
             dashboardForm.Show();
             this.Hide();
         }

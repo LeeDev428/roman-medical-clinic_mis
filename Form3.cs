@@ -18,9 +18,19 @@ namespace roman_medical_clinic_mis
         private int selectedPatientId = 0;
         private bool isEditMode = false;
 
-        public Form3()
+        // User information for admin check
+        private string currentUserType;
+        private string currentUsername;
+        private string currentFullName;
+
+        public Form3(string userType, string username, string fullName)
         {
             InitializeComponent();
+
+            // Initialize user information
+            currentUserType = userType;
+            currentUsername = username;
+            currentFullName = fullName;
 
             // Initialize UI components
             cmbSex.SelectedIndex = 0; // Default to SELECT
@@ -74,7 +84,7 @@ namespace roman_medical_clinic_mis
         private void btnPediaMedRecords_Click(object sender, EventArgs e)
         {
             // Navigate to pediatric records
-            Form2 pediatricForm = new Form2();
+            Form2 pediatricForm = new Form2(currentUserType, currentUsername, currentFullName);
             pediatricForm.Show();
             this.Hide();
         }
@@ -82,13 +92,17 @@ namespace roman_medical_clinic_mis
         private void btnAdultMedRecords_Click(object sender, EventArgs e)
         {
             // Already on this form, refresh data
-            LoadPatients();
+            Form3 adultForm = new Form3(currentUserType, currentUsername, currentFullName);
+            adultForm.Show();
+            this.Hide();
         }
 
         private void btnUserAccounts_Click(object sender, EventArgs e)
         {
-            MessageBox.Show("User Accounts feature is not implemented in this example.",
-                "Feature Not Available", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            // Open Form9 and pass user info for admin check
+            Form9 userAccountsForm = new Form9(currentUserType, currentUsername, currentFullName);
+            userAccountsForm.Show();
+            this.Hide();
         }
 
         private void btnAboutLicense_Click(object sender, EventArgs e)
@@ -330,17 +344,41 @@ namespace roman_medical_clinic_mis
         {
             if (selectedPatientId > 0)
             {
-                // Keep patient information but set a new consultation date
                 dtpConsultDate.Value = DateTime.Today;
+                int tempId = selectedPatientId;
+
+                // Add to queue if not already in today's queue
+                using (MySqlConnection connection = new MySqlConnection(connectionString))
+                {
+                    connection.Open();
+                    if (IsPatientInTodayQueue(tempId, connection))
+                    {
+                        MessageBox.Show("This patient is already in today's queue!", "Already in Queue", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                    }
+                    else
+                    {
+                        int queueNumber = GetNextQueueNumber(connection);
+                        AddPatientToQueue(
+                            tempId,
+                            txtSurname.Text.Trim(),
+                            txtGivenName.Text.Trim(),
+                            txtMiddleName.Text.Trim(),
+                            int.Parse(txtAge.Text),
+                            cmbSex.Text,
+                            connection
+                        );
+                        string fullName = $"{txtGivenName.Text.Trim()} {txtMiddleName.Text.Trim()} {txtSurname.Text.Trim()}";
+                        MessageBox.Show(
+                            $"Patient {fullName} added to today's queue!\nQueue Number: {queueNumber}",
+                            "Added to Queue",
+                            MessageBoxButtons.OK,
+                            MessageBoxIcon.Information
+                        );
+                    }
+                }
 
                 // Clear the ID to make it save as a new record
-                int tempId = selectedPatientId;
                 selectedPatientId = 0;
-
-                MessageBox.Show("Please update any necessary information and click Save to create a new consultation record.",
-                    "Reconsultation", MessageBoxButtons.OK, MessageBoxIcon.Information);
-
-                // If they cancel, we need the ID to restore the original record
                 btnCancel.Tag = tempId;
             }
             else
@@ -422,7 +460,7 @@ namespace roman_medical_clinic_mis
         private void lblDashboard_Click(object sender, EventArgs e)
         {
             // Navigate to dashboard
-            Form5 dashboardForm = new Form5();
+            Form5 dashboardForm = new Form5(currentUserType, currentUsername, currentFullName);
             dashboardForm.Show();
             this.Hide();
         }
@@ -779,6 +817,7 @@ namespace roman_medical_clinic_mis
                 {
                     connection.Open();
 
+                    // Insert new patient
                     string query = @"
                         INSERT INTO adult_patients (
                             surname,
@@ -821,10 +860,32 @@ namespace roman_medical_clinic_mis
                         command.Parameters.AddWithValue("@Status", "Active");
 
                         command.ExecuteNonQuery();
-
-                        MessageBox.Show("Patient record saved successfully!", "Success",
-                            MessageBoxButtons.OK, MessageBoxIcon.Information);
                     }
+
+                    // Get the new patient ID
+                    int newPatientId = 0;
+                    using (MySqlCommand getIdCmd = new MySqlCommand("SELECT LAST_INSERT_ID();", connection))
+                    {
+                        object result = getIdCmd.ExecuteScalar();
+                        if (result != null && int.TryParse(result.ToString(), out int id))
+                        {
+                            newPatientId = id;
+                        }
+                    }
+
+                    // Add to daily_patient_queue (NEW LOGIC)
+                    AddPatientToQueue(
+                        newPatientId,
+                        txtSurname.Text.Trim(),
+                        txtGivenName.Text.Trim(),
+                        txtMiddleName.Text.Trim(),
+                        int.Parse(txtAge.Text),
+                        cmbSex.Text,
+                        connection
+                    );
+
+                    MessageBox.Show("Patient record saved successfully and added to today's queue!", "Success",
+                        MessageBoxButtons.OK, MessageBoxIcon.Information);
                 }
             }
             catch (Exception ex)
@@ -920,6 +981,59 @@ namespace roman_medical_clinic_mis
             dtpConsultDate.Value = DateTime.Today;
             txtAge.Text = "0";
             selectedPatientId = 0;
+        }
+
+        private void AddPatientToQueue(int patientId, string surname, string givenName, string middleName, int age, string sex, MySqlConnection connection)
+        {
+            int queueNumber = GetNextQueueNumber(connection);
+
+            string queueQuery = @"
+                INSERT INTO daily_patient_queue 
+                (patient_id, patient_type, surname, givenname, middlename, age, sex, queue_number, added_at, date_added, status) 
+                VALUES 
+                (@PatientId, 'adult', @Surname, @GivenName, @MiddleName, @Age, @Sex, @QueueNumber, NOW(), CURDATE(), 'waiting')";
+
+            using (MySqlCommand queueCommand = new MySqlCommand(queueQuery, connection))
+            {
+                queueCommand.Parameters.AddWithValue("@PatientId", patientId);
+                queueCommand.Parameters.AddWithValue("@Surname", surname);
+                queueCommand.Parameters.AddWithValue("@GivenName", givenName);
+                queueCommand.Parameters.AddWithValue("@MiddleName", middleName);
+                queueCommand.Parameters.AddWithValue("@Age", age);
+                queueCommand.Parameters.AddWithValue("@Sex", sex);
+                queueCommand.Parameters.AddWithValue("@QueueNumber", queueNumber);
+
+                queueCommand.ExecuteNonQuery();
+            }
+        }
+
+        private int GetNextQueueNumber(MySqlConnection connection)
+        {
+            int nextQueueNumber = 1; // Default to 1 if no records found
+
+            string query = "SELECT COALESCE(MAX(queue_number), 0) + 1 FROM daily_patient_queue WHERE patient_type = 'adult'";
+
+            using (MySqlCommand command = new MySqlCommand(query, connection))
+            {
+                object result = command.ExecuteScalar();
+                if (result != null && int.TryParse(result.ToString(), out int queueNumber))
+                {
+                    nextQueueNumber = queueNumber;
+                }
+            }
+
+            return nextQueueNumber;
+        }
+
+        private bool IsPatientInTodayQueue(int patientId, MySqlConnection connection)
+        {
+            string query = "SELECT COUNT(*) FROM daily_patient_queue WHERE patient_id = @PatientId AND date_added = CURDATE() AND patient_type = 'adult'";
+            using (MySqlCommand cmd = new MySqlCommand(query, connection))
+            {
+                cmd.Parameters.AddWithValue("@PatientId", patientId);
+                int count = Convert.ToInt32(cmd.ExecuteScalar());
+                return count > 0;
+            }
         }
         #endregion
     }

@@ -28,6 +28,8 @@
         /// </summary>
         private void InitializeComponent()
         {
+
+
             this.pnlSidebar = new System.Windows.Forms.Panel();
             this.btnLogout = new System.Windows.Forms.Button();
             this.picLogo = new System.Windows.Forms.PictureBox();
@@ -416,7 +418,7 @@
             // txtAge
             // 
             this.txtAge.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
-            this.txtAge.Enabled = false;
+            this.txtAge.Enabled = true;
             this.txtAge.Font = new System.Drawing.Font("Arial", 9.75F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
             this.txtAge.Location = new System.Drawing.Point(867, 41);
             this.txtAge.Margin = new System.Windows.Forms.Padding(4, 4, 4, 4);
@@ -910,6 +912,30 @@
         }
 
         #endregion
+        // Declare new textboxes
+        private System.Windows.Forms.TextBox txtMedications1;
+        private System.Windows.Forms.TextBox txtMedications2;
+        private System.Windows.Forms.TextBox txtMedications3;
+        private System.Windows.Forms.TextBox txtMedications4;
+        private System.Windows.Forms.TextBox txtMedications5;
+
+        private System.Windows.Forms.TextBox txtPhysicalExamination1;
+        private System.Windows.Forms.TextBox txtPhysicalExamination2;
+        private System.Windows.Forms.TextBox txtPhysicalExamination3;
+        private System.Windows.Forms.TextBox txtPhysicalExamination4;
+        private System.Windows.Forms.TextBox txtPhysicalExamination5;
+
+        private System.Windows.Forms.TextBox txtDiagnosis1;
+        private System.Windows.Forms.TextBox txtDiagnosis2;
+        private System.Windows.Forms.TextBox txtDiagnosis3;
+        private System.Windows.Forms.TextBox txtDiagnosis4;
+        private System.Windows.Forms.TextBox txtDiagnosis5;
+
+        private System.Windows.Forms.TextBox txtChiefComplaint1;
+        private System.Windows.Forms.TextBox txtChiefComplaint2;
+        private System.Windows.Forms.TextBox txtChiefComplaint3;
+        private System.Windows.Forms.TextBox txtChiefComplaint4;
+        private System.Windows.Forms.TextBox txtChiefComplaint5;
 
         private System.Windows.Forms.Panel pnlSidebar;
         private System.Windows.Forms.PictureBox picLogo;

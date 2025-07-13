@@ -21,6 +21,10 @@ namespace roman_medical_clinic_mis
         private string patientSexAge;
         private DateTime prescriptionDate;
 
+        private string currentUserType;
+        private string currentUsername;
+        private string currentFullName;
+
         public Form7()
         {
             InitializeComponent();
@@ -312,7 +316,7 @@ namespace roman_medical_clinic_mis
             else
             {
                 // Default to Form2 if we can't find the previous form
-                Form2 pediatricForm = new Form2();
+                Form2 pediatricForm = new Form2(currentUserType, currentUsername, currentFullName);
                 pediatricForm.Show();
             }
 

@@ -148,8 +148,10 @@ namespace roman_medical_clinic_mis
 
         private void btnUserAccounts_Click(object sender, EventArgs e)
         {
-            MessageBox.Show("User Accounts feature is not implemented in this example.",
-                "Feature Not Available", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            // Open Form9 and pass user info for admin check
+            Form9 userAccountsForm = new Form9(currentUserType, currentUsername, currentFullName);
+            userAccountsForm.Show();
+            this.Hide();
         }
 
         private void btnAdultMedRecords_Click(object sender, EventArgs e)
@@ -170,7 +172,7 @@ namespace roman_medical_clinic_mis
                 }
             }
 
-            Form3 adultForm = new Form3();
+            Form3 adultForm = new Form3(currentUserType, currentUsername, currentFullName);
             adultForm.Show();
             this.Close();
         }
@@ -193,7 +195,7 @@ namespace roman_medical_clinic_mis
                 }
             }
 
-            Form2 pediatricForm = new Form2();
+            Form2 pediatricForm = new Form2(currentUserType, currentUsername, currentFullName);
             pediatricForm.Show();
             this.Close();
         }
@@ -216,7 +218,7 @@ namespace roman_medical_clinic_mis
                 }
             }
 
-            Form5 dashboardForm = new Form5();
+            Form5 dashboardForm = new Form5(currentUserType, currentUsername, currentFullName);
             dashboardForm.Show();
             this.Hide();
         }
@@ -260,6 +262,24 @@ namespace roman_medical_clinic_mis
                 {
                     connection.Open();
 
+                    // --- Age update logic ---
+                    int newAge;
+                    if (!int.TryParse(txtAge.Text.Trim(), out newAge) || newAge < 0 || newAge > 120)
+                    {
+                        MessageBox.Show("Please enter a valid age (0-120).", "Invalid Age", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                        txtAge.Focus();
+                        return;
+                    }
+
+                    string updateAgeQuery = "UPDATE pedia_patients SET age = @Age WHERE id = @PatientId";
+                    using (MySqlCommand cmd = new MySqlCommand(updateAgeQuery, connection))
+                    {
+                        cmd.Parameters.AddWithValue("@Age", newAge);
+                        cmd.Parameters.AddWithValue("@PatientId", patientId); // Make sure patientId is defined in your class
+                        cmd.ExecuteNonQuery();
+                    }
+                    // --- End Age update logic ---
+
                     // Save medications data
                     SaveMedicationsData(connection);
 
@@ -274,6 +294,12 @@ namespace roman_medical_clinic_mis
 
                     // Save past medical history data
                     SavePastMedicalData(connection);
+
+                    // Save chief complaint data
+                    SaveChiefComplaintData(connection);
+
+                    // Save history data
+                    SaveHistoryData(connection);
                 }
 
                 hasUnsavedChanges = false;
@@ -287,49 +313,7 @@ namespace roman_medical_clinic_mis
             }
         }
 
-        private void LoadConsultationData()
-        {
-            if (patientId <= 0)
-            {
-                MessageBox.Show("Invalid patient ID.", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
-                return;
-            }
-
-            isLoadingData = true;
-
-            try
-            {
-                using (MySqlConnection connection = new MySqlConnection(connectionString))
-                {
-                    connection.Open();
-
-                    // Load medications data
-                    LoadMedicationsData(connection);
-
-                    // Load physical examination data
-                    LoadPhysicalExamData(connection);
-
-                    // Load diagnosis data
-                    LoadDiagnosisData(connection);
-
-                    // Load vaccinations data
-                    LoadVaccinationsData(connection);
-
-                    // Load past medical history data
-                    LoadPastMedicalData(connection);
-                }
-            }
-            catch (Exception ex)
-            {
-                MessageBox.Show($"Error loading consultation data: {ex.Message}", "Database Error",
-                    MessageBoxButtons.OK, MessageBoxIcon.Error);
-            }
-            finally
-            {
-                isLoadingData = false;
-                hasUnsavedChanges = false;
-            }
-        }
+        // --- Load Methods ---
 
         private void LoadMedicationsData(MySqlConnection connection)
         {
@@ -349,7 +333,6 @@ namespace roman_medical_clinic_mis
                 {
                     if (reader.Read())
                     {
-                        // Combine all medication fields into one text
                         StringBuilder medications = new StringBuilder();
                         for (int i = 1; i <= 10; i++)
                         {
@@ -383,7 +366,6 @@ namespace roman_medical_clinic_mis
                 {
                     if (reader.Read())
                     {
-                        // Combine all physical exam fields into one text
                         StringBuilder physicalExam = new StringBuilder();
                         for (int i = 1; i <= 10; i++)
                         {
@@ -417,7 +399,6 @@ namespace roman_medical_clinic_mis
                 {
                     if (reader.Read())
                     {
-                        // Combine all diagnosis fields into one text
                         StringBuilder diagnosis = new StringBuilder();
                         for (int i = 1; i <= 10; i++)
                         {
@@ -428,6 +409,105 @@ namespace roman_medical_clinic_mis
                             }
                         }
                         txtDiagnosis.Text = diagnosis.ToString().Trim();
+                    }
+                }
+            }
+        }
+
+        private void LoadChiefComplaintData(MySqlConnection connection)
+        {
+            string query = @"
+                SELECT comp1, comp2, comp3, comp4, comp5, comp6, comp7, comp8, comp9, comp10
+                FROM pedia_complaints
+                WHERE surname = @Surname AND givername = @GivenName AND middlename = @MiddleName
+                ORDER BY id DESC LIMIT 1";
+
+            using (MySqlCommand command = new MySqlCommand(query, connection))
+            {
+                command.Parameters.AddWithValue("@Surname", txtSurname.Text);
+                command.Parameters.AddWithValue("@GivenName", txtGivenName.Text);
+                command.Parameters.AddWithValue("@MiddleName", txtMiddleName.Text);
+
+                using (MySqlDataReader reader = command.ExecuteReader())
+                {
+                    if (reader.Read())
+                    {
+                        StringBuilder complaints = new StringBuilder();
+                        for (int i = 1; i <= 10; i++)
+                        {
+                            string comp = reader[$"comp{i}"]?.ToString();
+                            if (!string.IsNullOrEmpty(comp))
+                            {
+                                complaints.AppendLine(comp);
+                            }
+                        }
+                        txtChiefComplaint.Text = complaints.ToString().Trim();
+                    }
+                }
+            }
+        }
+
+        private void LoadHistoryData(MySqlConnection connection)
+        {
+            string query = @"
+                SELECT hist1, hist2, hist3, hist4, hist5, hist6, hist7, hist8, hist9, hist10
+                FROM pedia_history
+                WHERE surname = @Surname AND givername = @GivenName AND middlename = @MiddleName
+                ORDER BY id DESC LIMIT 1";
+
+            using (MySqlCommand command = new MySqlCommand(query, connection))
+            {
+                command.Parameters.AddWithValue("@Surname", txtSurname.Text);
+                command.Parameters.AddWithValue("@GivenName", txtGivenName.Text);
+                command.Parameters.AddWithValue("@MiddleName", txtMiddleName.Text);
+
+                using (MySqlDataReader reader = command.ExecuteReader())
+                {
+                    if (reader.Read())
+                    {
+                        StringBuilder history = new StringBuilder();
+                        for (int i = 1; i <= 10; i++)
+                        {
+                            string hist = reader[$"hist{i}"]?.ToString();
+                            if (!string.IsNullOrEmpty(hist))
+                            {
+                                history.AppendLine(hist);
+                            }
+                        }
+                        txtHistory.Text = history.ToString().Trim();
+                    }
+                }
+            }
+        }
+
+        private void LoadPastMedicalData(MySqlConnection connection)
+        {
+            string query = @"
+                SELECT medi1, medi2, medi3, medi4, medi5, medi6, medi7, medi8, medi9, medi10
+                FROM pedia_past_medi 
+                WHERE surname = @Surname AND givername = @GivenName AND middlename = @MiddleName
+                ORDER BY id DESC LIMIT 1";
+
+            using (MySqlCommand command = new MySqlCommand(query, connection))
+            {
+                command.Parameters.AddWithValue("@Surname", txtSurname.Text);
+                command.Parameters.AddWithValue("@GivenName", txtGivenName.Text);
+                command.Parameters.AddWithValue("@MiddleName", txtMiddleName.Text);
+
+                using (MySqlDataReader reader = command.ExecuteReader())
+                {
+                    if (reader.Read())
+                    {
+                        StringBuilder pastMedical = new StringBuilder();
+                        for (int i = 1; i <= 10; i++)
+                        {
+                            string medi = reader[$"medi{i}"]?.ToString();
+                            if (!string.IsNullOrEmpty(medi))
+                            {
+                                pastMedical.AppendLine(medi);
+                            }
+                        }
+                        txtPastMedicalHistory.Text = pastMedical.ToString().Trim();
                     }
                 }
             }
@@ -452,49 +532,52 @@ namespace roman_medical_clinic_mis
                 {
                     if (reader.Read())
                     {
-                        // Set checkboxes based on database values (assuming "1" means checked, "0" means unchecked)
                         chkCovidVaccine.Checked = reader["covidvaccines"]?.ToString() == "1";
                         chkHepatitisB.Checked = reader["hepatitisB"]?.ToString() == "1";
                         chkRotavirus.Checked = reader["rotavirus"]?.ToString() == "1";
                         chkDiphtheria.Checked = reader["diphtheria"]?.ToString() == "1";
                         chkHepatitisA.Checked = reader["hepatitisA"]?.ToString() == "1";
-                        // Add other checkboxes as needed based on your form controls
+                        // Add other checkboxes as needed
                     }
                 }
             }
         }
 
-        private void LoadPastMedicalData(MySqlConnection connection)
+        private void LoadConsultationData()
         {
-            string query = @"
-                SELECT medi1, medi2, medi3, medi4, medi5, medi6, medi7, medi8, medi9, medi10
-                FROM pedia_past_medi 
-                WHERE surname = @Surname AND givername = @GivenName AND middlename = @MiddleName
-                ORDER BY id DESC LIMIT 1";
-
-            using (MySqlCommand command = new MySqlCommand(query, connection))
+            if (patientId <= 0)
             {
-                command.Parameters.AddWithValue("@Surname", txtSurname.Text);
-                command.Parameters.AddWithValue("@GivenName", txtGivenName.Text);
-                command.Parameters.AddWithValue("@MiddleName", txtMiddleName.Text);
+                MessageBox.Show("Invalid patient ID.", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                return;
+            }
 
-                using (MySqlDataReader reader = command.ExecuteReader())
+            isLoadingData = true;
+
+            try
+            {
+                using (MySqlConnection connection = new MySqlConnection(connectionString))
                 {
-                    if (reader.Read())
-                    {
-                        // Combine all past medical history fields into one text
-                        StringBuilder pastMedical = new StringBuilder();
-                        for (int i = 1; i <= 10; i++)
-                        {
-                            string medi = reader[$"medi{i}"]?.ToString();
-                            if (!string.IsNullOrEmpty(medi))
-                            {
-                                pastMedical.AppendLine(medi);
-                            }
-                        }
-                        txtPastMedicalHistory.Text = pastMedical.ToString().Trim();
-                    }
+                    connection.Open();
+
+                    // Load all pediatric consultation data
+                    LoadMedicationsData(connection);
+                    LoadPhysicalExamData(connection);
+                    LoadDiagnosisData(connection);
+                    LoadChiefComplaintData(connection);
+                    LoadHistoryData(connection);
+                    LoadPastMedicalData(connection);
+                    LoadVaccinationsData(connection);
                 }
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Error loading consultation data: {ex.Message}", "Database Error",
+                    MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+            finally
+            {
+                isLoadingData = false;
+                hasUnsavedChanges = false;
             }
         }
 
@@ -641,6 +724,57 @@ namespace roman_medical_clinic_mis
             }
         }
 
+        private void SaveChiefComplaintData(MySqlConnection connection)
+{
+    // Split the chief complaint text into lines and save to fields (comp1-comp10)
+    string[] complaints = txtChiefComplaint.Text.Split(new[] { Environment.NewLine }, StringSplitOptions.RemoveEmptyEntries);
+
+    string query = @"
+        INSERT INTO pedia_complaints (surname, givername, middlename, comp1, comp2, comp3, comp4, comp5, comp6, comp7, comp8, comp9, comp10, date1)
+        VALUES (@Surname, @GivenName, @MiddleName, @Comp1, @Comp2, @Comp3, @Comp4, @Comp5, @Comp6, @Comp7, @Comp8, @Comp9, @Comp10, @Date1)";
+
+    using (MySqlCommand command = new MySqlCommand(query, connection))
+    {
+        command.Parameters.AddWithValue("@Surname", txtSurname.Text);
+        command.Parameters.AddWithValue("@GivenName", txtGivenName.Text);
+        command.Parameters.AddWithValue("@MiddleName", txtMiddleName.Text);
+        command.Parameters.AddWithValue("@Date1", DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss"));
+
+        for (int i = 1; i <= 10; i++)
+        {
+            string value = (i <= complaints.Length) ? complaints[i - 1] : "";
+            command.Parameters.AddWithValue($"@Comp{i}", value);
+        }
+
+        command.ExecuteNonQuery();
+    }
+}
+
+        private void SaveHistoryData(MySqlConnection connection)
+{
+    // Split the history text into lines and save to fields (hist1-hist10)
+    string[] history = txtHistory.Text.Split(new[] { Environment.NewLine }, StringSplitOptions.RemoveEmptyEntries);
+
+    string query = @"
+        INSERT INTO pedia_history (surname, givername, middlename, hist1, hist2, hist3, hist4, hist5, hist6, hist7, hist8, hist9, hist10, date1)
+        VALUES (@Surname, @GivenName, @MiddleName, @Hist1, @Hist2, @Hist3, @Hist4, @Hist5, @Hist6, @Hist7, @Hist8, @Hist9, @Hist10, @Date1)";
+
+    using (MySqlCommand command = new MySqlCommand(query, connection))
+    {
+        command.Parameters.AddWithValue("@Surname", txtSurname.Text);
+        command.Parameters.AddWithValue("@GivenName", txtGivenName.Text);
+        command.Parameters.AddWithValue("@MiddleName", txtMiddleName.Text);
+        command.Parameters.AddWithValue("@Date1", DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss"));
+
+        for (int i = 1; i <= 10; i++)
+        {
+            string value = (i <= history.Length) ? history[i - 1] : "";
+            command.Parameters.AddWithValue($"@Hist{i}", value);
+        }
+
+        command.ExecuteNonQuery();
+    }
+}
         #endregion
     }
 }

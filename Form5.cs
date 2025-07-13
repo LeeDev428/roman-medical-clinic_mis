@@ -342,22 +342,24 @@ namespace roman_medical_clinic_mis
         #region UI Event Handlers
         private void btnPediaMedRecords_Click(object sender, EventArgs e)
         {
-            Form2 pediatricForm = new Form2();
+            Form2 pediatricForm = new Form2(currentUserType, currentUsername, currentFullName);
             pediatricForm.Show();
             this.Hide();
         }
 
         private void btnAdultMedRecords_Click(object sender, EventArgs e)
         {
-            Form3 adultRecordsForm = new Form3();
-            adultRecordsForm.Show();
+            Form3 adultForm = new Form3(currentUserType, currentUsername, currentFullName);
+            adultForm.Show();
             this.Hide();
         }
 
         private void btnUserAccounts_Click(object sender, EventArgs e)
         {
-            MessageBox.Show("User Accounts feature is not implemented in this example.",
-                "Feature Not Available", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            // Open Form9 and pass user info for admin check
+            Form9 userAccountsForm = new Form9(currentUserType, currentUsername, currentFullName);
+            userAccountsForm.Show();
+            this.Hide();
         }
 
         private void btnAboutLicense_Click(object sender, EventArgs e)
@@ -377,7 +379,9 @@ namespace roman_medical_clinic_mis
         private void lblDashboard_Click(object sender, EventArgs e)
         {
             // Refresh dashboard data when dashboard label is clicked
-            LoadDashboardData();
+            Form5 dashboardForm = new Form5(currentUserType, currentUsername, currentFullName);
+            dashboardForm.Show();
+            this.Hide();
         }
 
         private void btnRefreshQueue_Click(object sender, EventArgs e)

@@ -1,11 +1,5 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.ComponentModel;
-using System.Data;
-using System.Drawing;
-using System.Linq;
 using System.Text;
-using System.Threading.Tasks;
 using System.Windows.Forms;
 using MySql.Data.MySqlClient;
 
@@ -23,7 +17,7 @@ namespace roman_medical_clinic_mis
         private bool isLoadingData = false;
         private bool hasUnsavedChanges = false;
 
-        // User information - we'll store these locally instead of using Properties.Settings
+        // User information
         private string currentUserType = "Admin";
         private string currentUsername = "IAN";
         private string currentFullName = "Ian Phillip C Roman";
@@ -397,25 +391,31 @@ namespace roman_medical_clinic_mis
                 {
                     connection.Open();
 
-                    // Save medications data
+                    // --- Age update logic ---
+                    int newAge;
+                    if (!int.TryParse(txtAge.Text.Trim(), out newAge) || newAge < 0 || newAge > 120)
+                    {
+                        MessageBox.Show("Please enter a valid age (0-120).", "Invalid Age", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                        txtAge.Focus();
+                        return;
+                    }
+
+                    string updateAgeQuery = "UPDATE adult_patients SET age = @Age WHERE id = @PatientId";
+                    using (MySqlCommand cmd = new MySqlCommand(updateAgeQuery, connection))
+                    {
+                        cmd.Parameters.AddWithValue("@Age", newAge);
+                        cmd.Parameters.AddWithValue("@PatientId", patientId);
+                        cmd.ExecuteNonQuery();
+                    }
+                    // --- End Age update logic ---
+
+                    // Save other consultation data
                     SaveMedicationsData(connection);
-
-                    // Save physical examination data
                     SavePhysicalExamData(connection);
-
-                    // Save diagnosis data
                     SaveDiagnosisData(connection);
-
-                    // Save complaints data
                     SaveComplaintsData(connection);
-
-                    // Save history data
                     SaveHistoryData(connection);
-
-                    // Save past medical data
                     SavePastMedicalData(connection);
-
-                    // Save vaccinations data
                     SaveVaccinationsData(connection);
                 }
 
@@ -515,12 +515,12 @@ namespace roman_medical_clinic_mis
 
         private void SaveComplaintsData(MySqlConnection connection)
         {
-            // Split the complaints text into lines and save to info1-info5 fields
+            // Split the complaints text into lines and save to comp1-comp10 fields
             string[] complaints = txtChiefComplaint.Text.Split(new[] { Environment.NewLine }, StringSplitOptions.RemoveEmptyEntries);
 
             string query = @"
-                INSERT INTO adult_complaints (surname, givername, middlename, info1, info2, info3, info4, info5, date1)
-                VALUES (@Surname, @GivenName, @MiddleName, @Info1, @Info2, @Info3, @Info4, @Info5, @Date1)";
+        INSERT INTO adult_complaints (surname, givenname, middlename, comp1, comp2, comp3, comp4, comp5, comp6, comp7, comp8, comp9, comp10, date1)
+        VALUES (@Surname, @GivenName, @MiddleName, @Comp1, @Comp2, @Comp3, @Comp4, @Comp5, @Comp6, @Comp7, @Comp8, @Comp9, @Comp10, @Date1)";
 
             using (MySqlCommand command = new MySqlCommand(query, connection))
             {
@@ -529,11 +529,11 @@ namespace roman_medical_clinic_mis
                 command.Parameters.AddWithValue("@MiddleName", txtMiddleName.Text);
                 command.Parameters.AddWithValue("@Date1", DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss"));
 
-                // Add info parameters (up to 5)
-                for (int i = 1; i <= 5; i++)
+                // Add complaint parameters (up to 10)
+                for (int i = 1; i <= 10; i++)
                 {
-                    string infoValue = (i <= complaints.Length) ? complaints[i - 1] : "";
-                    command.Parameters.AddWithValue($"@Info{i}", infoValue);
+                    string compValue = (i <= complaints.Length) ? complaints[i - 1] : "";
+                    command.Parameters.AddWithValue($"@Comp{i}", compValue);
                 }
 
                 command.ExecuteNonQuery();
@@ -653,8 +653,8 @@ namespace roman_medical_clinic_mis
                 }
             }
 
-            Form3 adultRecordsForm = new Form3();
-            adultRecordsForm.Show();
+            Form3 adultForm = new Form3(currentUserType, currentUsername, currentFullName);
+            adultForm.Show();
             this.Close();
         }
 
@@ -676,15 +676,17 @@ namespace roman_medical_clinic_mis
                 }
             }
 
-            Form2 pediatricForm = new Form2();
+            Form2 pediatricForm = new Form2(currentUserType, currentUsername, currentFullName);
             pediatricForm.Show();
             this.Close();
         }
 
         private void btnUserAccounts_Click(object sender, EventArgs e)
         {
-            MessageBox.Show("User Accounts feature is not implemented in this example.",
-                "Feature Not Available", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            // Open Form9 and pass user info for admin check
+            Form9 userAccountsForm = new Form9(currentUserType, currentUsername, currentFullName);
+            userAccountsForm.Show();
+            this.Hide();
         }
 
         private void btnAboutLicense_Click(object sender, EventArgs e)

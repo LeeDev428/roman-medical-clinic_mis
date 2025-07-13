@@ -419,7 +419,7 @@
             // txtAge
             // 
             this.txtAge.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
-            this.txtAge.Enabled = false;
+            this.txtAge.Enabled = true;
             this.txtAge.Font = new System.Drawing.Font("Arial", 9.75F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
             this.txtAge.Location = new System.Drawing.Point(867, 41);
             this.txtAge.Margin = new System.Windows.Forms.Padding(4, 4, 4, 4);

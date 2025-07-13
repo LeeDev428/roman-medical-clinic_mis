@@ -61,7 +61,7 @@ namespace roman_medical_clinic_mis
                     using (MySqlConnection connection = new MySqlConnection(connectionString))
                     {
                         connection.Open();
-                        string query = "SELECT id, usertype, fullname FROM users WHERE username = @Username AND password = @Password AND status = 'Active'";
+                        string query = "SELECT id, usertype, fullname FROM users WHERE username = @Username AND password = @Password AND status = 'Active' AND is_approved = 1";
 
                         using (MySqlCommand command = new MySqlCommand(query, connection))
                         {
@@ -79,23 +79,16 @@ namespace roman_medical_clinic_mis
                                     MessageBox.Show($"Welcome, {fullName}!\nUser Type: {userType}", "Login Successful",
                                         MessageBoxButtons.OK, MessageBoxIcon.Information);
 
-                                    // Clear login fields
                                     txtUsername.Clear();
                                     txtPassword.Clear();
 
-                                    Form2 pediatricRecordsForm = new Form2();
+                                    Form2 pediatricRecordsForm = new Form2(userType, txtUsername.Text.Trim(), fullName);
                                     pediatricRecordsForm.Show();
                                     this.Hide();
-
-                                    // Here you would typically open the main application form
-                                    // and pass the user information
-                                    // MainForm mainForm = new MainForm(userId, userType, fullName);
-                                    // mainForm.Show();
-                                    // this.Hide();
                                 }
                                 else
                                 {
-                                    MessageBox.Show("Invalid username or password.", "Login Failed",
+                                    MessageBox.Show("Invalid username, password, or your account is not yet approved.", "Login Failed",
                                         MessageBoxButtons.OK, MessageBoxIcon.Error);
                                 }
                             }
@@ -152,9 +145,9 @@ namespace roman_medical_clinic_mis
 
                         // Insert new user
                         string insertQuery = @"INSERT INTO users (fullname, fulladdress, contactno, email, 
-                                             usertype, username, password, dateregistration, status) 
+                                             usertype, username, password, dateregistration, status, is_approved) 
                                              VALUES (@FullName, @FullAddress, @ContactNumber, @Email, 
-                                             @UserType, @Username, @Password, @DateRegistration, @Status)";
+                                             @UserType, @Username, @Password, @DateRegistration, @Status, 0)";
 
                         using (MySqlCommand command = new MySqlCommand(insertQuery, connection))
                         {
